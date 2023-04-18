@@ -1,3 +1,81 @@
+# 什么是容器
+
+## 容器不是虚拟机
+
+虚拟机是虚拟出来了一个完整的硬件系统。
+
+容器只是主机上的一个隔离（namespace）和受限（cgroups、功能、seccomp）进程。它没有两个内核层，因此需要更少的资源。要启动容器化进程，您需要创建namespace，而不是在其中运行进程。低级容器运行时知道如何准备这样的namespace，然后如何在其中启动容器化进程。
+
+![虚拟机与容器](https://devopstales.github.io/img/include/VM-container.png)
+
+
+
+
+
+### CRI Olugin
+
+![architecture.png](https://github.com/containerd/containerd/blob/main/docs/cri/architecture.png?raw=true)
+
+这里我们使用docker启用两个容器
+
+```shell
+# 启动一个容器centos
+[root@Viruses ~]# docker run -itd --name centos centos /bin/bash
+
+# 启动一个容器nginx
+[root@Viruses ~]# docker run -itd --name nginx01 -p  8080:80 nginx
+```
+
+查看Linux系统进程树
+
+```shell
+[root@Viruses ~]# ps axjf
+---
+    1 18012 18012 18012 ?           -1 Ssl      0   0:03 /usr/bin/containerd
+    1 18022 18022 18022 ?           -1 Ssl      0   0:18 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+18022 20630 18022 18022 ?           -1 Sl       0   0:00  \_ /usr/bin/docker-proxy -proto tcp -host-ip 0.0.0.0 -host-port 8080 -contain
+18022 20634 18022 18022 ?           -1 Sl       0   0:00  \_ /usr/bin/docker-proxy -proto tcp -host-ip :: -host-port 8080 -container-ip
+    1 18528 18528 18528 ?           -1 Ssl      0   0:00 runc init
+    1 20646 20646 18012 ?           -1 Sl       0   0:00 /usr/bin/containerd-shim-runc-v2 -namespace moby -id fa47c875f4ef3b5fc495a3236
+20646 20665 20665 20665 pts/0    20665 Ss+      0   0:00  \_ nginx: master process nginx -g daemon off;
+20665 20713 20665 20665 pts/0    20665 S+     101   0:00      \_ nginx: worker process
+    1 20762 20762 18012 ?           -1 Sl       0   0:00 /usr/bin/containerd-shim-runc-v2 -namespace moby -id 012d9d9f39bd524e863eaecb8
+20762 20781 20781 20781 pts/0    20781 Ss+      0   0:00  \_ /bin/bash
+
+```
+
+
+
+
+
+### 什么是低级容器运行时
+
+容器是使用 Linux 命名空间和 cgroup 实现的。命名空间让您可以为每个容器虚拟化系统资源，例如文件系统或网络。Cgroups 提供了一种方法来限制每个容器可以使用的 CPU 和内存等资源量。在最低级别，容器运行时负责为容器设置这些命名空间和 cgroup，然后在这些命名空间和 cgroup 中运行命令。低级运行时支持使用这些操作系统功能。
+
+### OCI
+
+Docker、Google、CoreOS和其他供应商创建了[开放容器计划（OCI）。](https://opencontainers.org/)
+
+OCI 目前包含两个规范：作为 CRI（容器运行时接口）标准的运行时规范（运行时规范）和映像规范（映像规范）。
+
+
+
+### 什么是shim
+
+一个容器运行时的shim是位于容器管理（docker,containerd,cri-o）和容器运行时（runc,crun）之间的软件，用于解决对项目集成的问题
+
+![Layered Docker architecture: docker (cli) -> dockerd -> containerd -> containerd-shim -> runc](https://iximiuz.com/implementing-container-runtime-shim/docker-containerd-runc-2000-opt.png)
+
+我们可以查看linux系统上面的树进程来查看到
+
+![Spotting container runtime shim process](https://iximiuz.com/implementing-container-runtime-shim/ps-shim-example.png)
+
+
+
+### 容器运行时
+
+容器运行时通常分为两类 - 低级（runc，gVisor，Firecracker）和高级（containerd， Docker，CRI-O，podman）。区别在于消耗的 *OCI* 规格和附加功能的数量。
+
 # container runtime
 
 [官方文档](https://kubernetes.io/zh-cn/docs/setup/production-environment/container-runtimes/)
