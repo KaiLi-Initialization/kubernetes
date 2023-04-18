@@ -367,21 +367,21 @@ lines 1-22/22 (END)
 
 [安装文档](https://github.com/containerd/containerd/blob/main/docs/getting-started.md)
 
-containerd下载地址https://github.com/containerd/containerd/releases，文件格式为：`containerd-<VERSION>-<OS>-<ARCH>.tar.gz`
+containerd下载地址https://containerd.io/downloads/
 
 #### containerd安装
 
 下载安装文件，解压到目录`/usr/local`:
 
 ```shell
-$ wget wget https://github.com/containerd/containerd/releases/download/v1.6.20/containerd-1.6.20-linux-amd64.tar.gz
-$ tar Cxzvf /usr/local containerd-1.6.20-linux-amd64.tar.gz 
+$ wget https://github.com/containerd/containerd/releases/download/v1.7.0/containerd-1.7.0-linux-amd64.tar.gz
+$ tar xvf containerd-1.7.0-linux-amd64.tar.gz
 bin/
+bin/containerd-shim-runc-v1
+bin/containerd
 bin/containerd-shim-runc-v2
 bin/containerd-shim
 bin/ctr
-bin/containerd-shim-runc-v1
-bin/containerd
 bin/containerd-stress
 ```
 
