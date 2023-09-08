@@ -567,7 +567,7 @@ sudo yum-config-manager \
 [root@master ~]#  yum install --setopt=obsoletes=0 docker-ce-18.06.3.ce-3.el7 -y
 
 方式二：安装最新版本docker-ce
-[root@master ~]# sudo yum install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+[root@master ~]# sudo yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
 # 5、添加一个配置文件
 #Docker 在默认情况下使用Vgroup Driver为cgroupfs，而Kubernetes推荐使用systemd来替代cgroupfs
@@ -583,7 +583,24 @@ EOF
 [root@master ~]# systemctl enable docker
 ```
 
-##### 3.6.10 cri-dockerd安装
+##### 3.6.10 删除docker
+
+1. 删除Docker Engine, CLI, containerd, 和 Docker Compose packages
+
+```shell
+sudo yum remove docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-ce-rootless-extras
+```
+
+2. 删除docker相关文件夹
+
+   ```shell
+   sudo rm -rf /var/lib/docker
+   sudo rm -rf /var/lib/containerd
+   ```
+
+   
+
+##### 3.6.11 cri-dockerd安装
 
 kubernetes1.26.3版本需要安装cri-dockerd作为网络接口
 
@@ -591,7 +608,7 @@ kubernetes1.26.3版本需要安装cri-dockerd作为网络接口
 
 [cri-dockerd下载地址](https://github.com/Mirantis/cri-dockerd/releases)
 
-###### 3.6.10.1 rpm方式安装cri-dockerd
+###### 3.6.11.1 rpm方式安装cri-dockerd
 
 下载rpm包
 
@@ -613,7 +630,7 @@ systemctl enable --now cri-docker.socket
 systemctl status cri-docker
 ```
 
-###### 3.6.10.2 go编译安装cri-dockerd
+###### 3.6.11.2 go编译安装cri-dockerd
 
 **安装go环境**
 
@@ -748,7 +765,7 @@ lines 1-22/22 (END)
 
 
 
-##### 3.6.11 安装Kubernetes组件
+##### 3.6.12 安装Kubernetes组件
 
 ```powershell
 # 1、由于kubernetes的镜像在国外，速度比较慢，这里切换成国内的镜像源
@@ -794,9 +811,13 @@ EOF
 
 # 5、设置kubelet开机自启
 [root@master ~]# systemctl enable kubelet
+
+kubelet 现在每隔几秒就会重启，因为它陷入了一个等待 kubeadm 指令的死循环。
 ```
 
-##### 3.6.12 准备集群镜像
+##### 3.6.13 集群初始化一
+
+###### 准备集群镜像
 
 ```powershell
 # 在安装kubernetes集群之前，必须要提前准备好集群需要的镜像，所需镜像可以通过下面命令查看
@@ -844,22 +865,94 @@ docker rmi registry.aliyuncs.com/google_containers/coredns:v1.9.3
 
 ```
 
-##### 3.6.13 集群初始化
+###### 集群初始化
 
 >下面的操作只需要在master节点上执行即可
 
 ```powershell
 # 创建集群
 [root@master ~]# kubeadm init \
-	--apiserver-advertise-address=192.168.10.131 \
+	--apiserver-advertise-address=192.168.10.140 \
 	--image-repository registry.aliyuncs.com/google_containers \
-	--kubernetes-version=v1.26.3 \
+	--kubernetes-version=v1.28.1 \
 	--service-cidr=10.96.0.0/12 \
 	--pod-network-cidr=10.244.0.0/16 \
-	--cri-socket unix://var/run/cri-dockerd.sock \
+	--cri-socket unix:///var/run/cri-dockerd.sock \
 	--ignore-preflight-errors=Numcpu
 
 ```
+
+##### 3.6.14 集群初始化二
+
+###### 生成kubeadm初始化配置文件
+
+```shell
+[root@master ~]# kubeadm config print init-defaults
+apiVersion: kubeadm.k8s.io/v1beta3
+bootstrapTokens:
+- groups:
+  - system:bootstrappers:kubeadm:default-node-token
+  token: abcdef.0123456789abcdef
+  ttl: 24h0m0s
+  usages:
+  - signing
+  - authentication
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: 1.2.3.4           # 此处修改为master节点的IP地址
+  bindPort: 6443
+nodeRegistration:
+  criSocket: unix:///var/run/containerd/containerd.sock   # 此处指定使用的container runtime的sock路径
+  imagePullPolicy: IfNotPresent
+  name: node
+  taints: null
+---
+apiServer:
+  timeoutForControlPlane: 4m0s
+apiVersion: kubeadm.k8s.io/v1beta3
+certificatesDir: /etc/kubernetes/pki
+clusterName: kubernetes
+controllerManager: {}
+dns: {}
+etcd:
+  local:
+    dataDir: /var/lib/etcd
+imageRepository: registry.k8s.io      # 此处为下载镜像的仓库地址
+kind: ClusterConfiguration
+kubernetesVersion: 1.26.0       # 修改为所需要的K8S版本号
+networking:
+  dnsDomain: cluster.local
+  serviceSubnet: 10.96.0.0/12
+scheduler: {}
+
+# 或者生成配置文件存储在文件：kubeadm.yaml中
+[root@master ~]#  kubeadm config print init-defaults > kubeadm.yaml
+```
+
+###### 下载集群所需组件镜像
+
+```shell
+# 查看所需要的镜像
+[root@master ~]# kubeadm config images list
+registry.k8s.io/kube-apiserver:v1.26.3
+registry.k8s.io/kube-controller-manager:v1.26.3
+registry.k8s.io/kube-scheduler:v1.26.3
+registry.k8s.io/kube-proxy:v1.26.3
+registry.k8s.io/pause:3.9
+registry.k8s.io/etcd:3.5.6-0
+registry.k8s.io/coredns/coredns:v1.9.3
+
+
+[root@master ~]# kubeadm config images pull --config /root/kubeadm.yaml
+```
+
+###### 初始化集群
+
+```shell
+[root@master ~]# kubeadm init --config /root/kubeadm.yaml  --upload-certs
+```
+
+
 
 显示以下内容为安装完成
 
@@ -940,7 +1033,7 @@ node1   NotReady   <none>  22s   v1.17.4
 node2   NotReady   <none>  19s   v1.17.4
 ```
 
-##### 3.6.14 安装网络插件，只在master节点操作即可
+##### 3.6.15 安装网络插件，只在master节点操作即可
 
 ```shell
 kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
@@ -950,14 +1043,14 @@ kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Doc
 
 ![img](安装-03)
 
-##### 3.6.15 kubeadm中的命令
+##### 3.6.16 kubeadm中的命令
 
 ```powershell
 # 生成 新的token
 [root@master ~]# kubeadm token create --print-join-command
 ```
 
-##### 3.6.16 k8s-service代理模式IPVS
+##### 3.6.17 k8s-service代理模式IPVS
 
 kubeadm方式修改ipvs模式：
 

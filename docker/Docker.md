@@ -33,9 +33,7 @@ sudo yum remove docker \
 
 ```shell
 sudo yum install -y yum-utils
-sudo yum-config-manager \
-    --add-repo \
-    https://download.docker.com/linux/centos/docker-ce.repo
+sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 ```
 
 ### 安装 Docker 
@@ -43,7 +41,7 @@ sudo yum-config-manager \
 安装*最新版本*的 Docker Engine、containerd 和 Docker Compose
 
 ```shell
-sudo yum install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+sudo yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
 安装特定版本的 Docker 
@@ -64,11 +62,11 @@ Available Packages
 
 # 安装指定版本
 # 格式：
-sudo yum install docker-ce-<VERSION_STRING> docker-ce-cli-<VERSION_STRING> containerd.io docker-compose-plugin
+sudo yum install docker-ce-<VERSION_STRING> docker-ce-cli-<VERSION_STRING> containerd.io docker-buildx-plugin docker-compose-plugin
 
 # 例如安装版本docker-ce-3:20.10.21-3.el9：
 
-sudo yum install docker-ce-3:20.10.21-3.el9 docker-ce-cli-3:20.10.21-3.el9 containerd.io docker-compose-plugin
+sudo yum install docker-ce-3:20.10.21-3.el9 docker-ce-cli-3:20.10.21-3.el9 containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
 启动Docker 
@@ -114,12 +112,38 @@ buildkit  containers  image  network  overlay2  plugins  runtimes  swarm  tmp  t
 
 ```
 
+### 升级Docker
+
+从`.rpm`包安装升级 Docker Engine
+
+1. 前往网站https://download.docker.com/linux/centos/选择下载对应Centos系统版本，然后浏览`x86_64/stable/Packages/` 并下载`.rpm`您要安装的 Docker 版本的文件。
+
+2. 安装 Docker Engine，将下面的路径:`/path/to/package.rpm`更改为您下载 Docker 包的路径。
+
+   ```shell
+   sudo yum install /path/to/package.rpm
+   ```
+
+3. 启动 Docker
+
+   ```shell
+   sudo systemctl start docker
+   ```
+
+4. 通过运行镜像`hello-world`来验证Docker Engine安装是否成功 
+
+   ```shell
+   sudo docker run hello-world
+   ```
+
+   
+
 ### 卸载 Docker
 
 卸载 Docker Engine、CLI、Containerd 和 Docker Compose 包
 
 ```shell
-sudo yum remove docker-ce docker-ce-cli containerd.io docker-compose-plugin
+sudo yum remove docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-ce-rootless-extras
 ```
 
 主机上的Images(镜像), containers（容器）, volumes（数据卷）, or customized（自定义配置）不会自动删除，需要手动删除

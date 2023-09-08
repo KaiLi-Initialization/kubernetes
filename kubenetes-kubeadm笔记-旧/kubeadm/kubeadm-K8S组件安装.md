@@ -161,15 +161,16 @@ telnet vip地址:16443
 ```powershell
 # 1、由于kubernetes的镜像在国外，速度比较慢，这里切换成国内的镜像源
 # 2、编辑/etc/yum.repos.d/kubernetes.repo,添加下面的配置
-cat > /etc/yum.repos.d/kubernetes.repo <<EOF
+
+cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
 [kubernetes]
 name=Kubernetes
 baseurl=http://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64
 enabled=1
 gpgchech=0
 repo_gpgcheck=0
-gpgkey=http://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg
-			http://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
+gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg
+	   http://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
 EOF
 
 # 3、安装kubeadm、kubelet和kubectl
@@ -186,6 +187,9 @@ KUBE_PROXY_MODE="ipvs"
 
 # 5、设置kubelet开机自启
 [root@master ~]# systemctl enable kubelet
+或
+[root@master ~]# sudo systemctl enable --now kubelet
+
 ```
 
 ###  准备集群镜像
@@ -253,9 +257,9 @@ docker rmi registry.aliyuncs.com/google_containers/coredns:v1.9.3
 ```powershell
 # 创建集群
 [root@master ~]# kubeadm init \
-	--apiserver-advertise-address=192.168.10.130 \
+	--apiserver-advertise-address=192.168.10.181 \
 	--image-repository registry.aliyuncs.com/google_containers \
-	--kubernetes-version=v1.25.4 \
+	--kubernetes-version=v1.28.0 \
 	--service-cidr=10.96.0.0/12 \
 	--pod-network-cidr=10.244.0.0/16 \
 	--cri-socket unix://var/run/cri-dockerd.sock \
@@ -292,7 +296,7 @@ kubeadm join 192.168.10.130:6443 --token oat3ii.jimyx3sob5cpi15v \
 重置再初始化
 
 ```shell
-kubeadm reset
+kubeadm reset --cri-socket unix:///var/run/cri-dockerd.sock
 
 rm -fr ~/.kube/  /etc/kubernetes/* var/lib/etcd/*
 
@@ -302,7 +306,7 @@ rm -fr ~/.kube/  /etc/kubernetes/* var/lib/etcd/*
 	--kubernetes-version=v1.25.4 \
 	--service-cidr=10.96.0.0/12 \
 	--pod-network-cidr=10.244.0.0/16 \
-	--cri-socket unix://var/run/cri-dockerd.sock \
+	--cri-socket unix:///var/run/cri-dockerd.sock \
 	--ignore-preflight-errors=Numcpu
 ```
 
