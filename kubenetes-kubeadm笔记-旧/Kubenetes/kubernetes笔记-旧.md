@@ -3815,6 +3815,8 @@ postStart...
 
 #### 6.3.4 容器探测
 
+**官方文档：**https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+
 容器探测用于检测容器中的应用实例是否正常工作，是保障业务可用性的一种传统机制。如果经过探测，实例的状态不符合预期，那么kubernetes就会把该问题实例**" 摘除 "，不承担业务流量**。kubernetes提供了两种探针来实现容器探测，分别是：
 
 - **liveness probes**：存活性探针，用于检测应用实例当前是**否处于正常运行状态**，如果不是，**k8s会重启容器**
