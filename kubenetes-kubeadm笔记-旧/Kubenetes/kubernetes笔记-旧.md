@@ -5143,6 +5143,34 @@ pc-replicaset-fmb8f   1/1     Running   0          54s
 pc-replicaset-snrk2   1/1     Running   0          54s
 ```
 
+##### Pod-template-hash 标签
+
+Deployment 控制器将 `pod-template-hash` 标签添加到 Deployment 所创建或收留的每个 ReplicaSet 。此标签用于确保 Deployment 的子 ReplicaSets 不重叠。
+
+如下为两个不同的Deployment 控制器的标签情况：
+
+```shell
+[root@centos-master pod]# kubectl get pod --show-labels
+NAME                              READY   STATUS    RESTARTS   AGE   LABELS
+deploy-nginx-8599fc9455-5fvcp     1/1     Running   0          18m   app=deploy-nginx,pod-template-hash=8599fc9455
+deploy-nginx-8599fc9455-pb9lt     1/1     Running   0          18m   app=deploy-nginx,pod-template-hash=8599fc9455
+deploy-nginx-8599fc9455-wmhsx     1/1     Running   0          18m   app=deploy-nginx,pod-template-hash=8599fc9455
+deploy-nginx01-6d86f69454-c8jgg   1/1     Running   0          48s   app=deploy-nginx01,pod-template-hash=6d86f69454
+deploy-nginx01-6d86f69454-cjvl6   1/1     Running   0          48s   app=deploy-nginx01,pod-template-hash=6d86f69454
+deploy-nginx01-6d86f69454-snmzd   1/1     Running   0          48s   app=deploy-nginx01,pod-template-hash=6d86f69454
+[root@centos-master pod]# kubectl get rs --show-labels
+NAME                        DESIRED   CURRENT   READY   AGE   LABELS
+deploy-nginx-8599fc9455     3         3         3       18m   app=deploy-nginx,pod-template-hash=8599fc9455
+deploy-nginx01-6d86f69454   3         3         3       58s   app=deploy-nginx01,pod-template-hash=6d86f69454
+[root@centos-master pod]# kubectl get deployment --show-labels
+NAME             READY   UP-TO-DATE   AVAILABLE   AGE   LABELS
+deploy-nginx     3/3     3            3           18m   app=deploy-nginx
+deploy-nginx01   3/3     3            3           61s   app=deploy-nginx01
+
+```
+
+
+
 **扩缩容**
 
 ```shell
@@ -5228,9 +5256,27 @@ pc-replicaset-dslhb   1/1     Running   0          75s
 replicaset.apps "pc-replicaset" deleted
 ```
 
+##### 重点
+
+kubernetes是以标签的形式来管理POD的，所以这里牵涉到一个控制器和POD之间的归属问题，此处以ReplicaSet为例进行解释：
+
+假如创建一个pod的labels为：app: nginx；在创建一个副本为3的ReplicaSet标签匹配条件为：app: nginx，会出现两种情况
+
+1. 先创建pod，再创建ReplicaSet，那么会出现这种情况：单独创建的pod会被归宿为ReplicaSet的副本，也就是说创建ReplicaSet的时候，ReplicaSet控制器指只会再创建2个pod副本，而不是三个pod副本
+
+2. 先创建ReplicaSet，再创建pod，那么会出现这种情况：创建的ReplicaSet的最大POD副本是三个，如果再创建POD，那么控制器ReplicaSet会人为新创建的POD也归属他管理，且已超出最大副本的限制，那么控制器ReplicaSet会之间把单独创建的POD关停。
+
+   ```shell
+   若手动更改控制器ReplicaSet控制的三个副本的标签（labels），假如更改了其中一个后，做删除ReplicaSet控制器的操作，那么当你在删除控制器的时候，被更改标签的那个POD副本不会被删除。
+   ```
+
+   
+
 #### 6.5.3 Deployment(Deploy)
 
 **华为云参考文档：**https://support.huaweicloud.com/basics-cce/kubernetes_0014.html
+
+**官网参考文档：**https://kubernetes.io/zh-cn/docs/concepts/workloads/controllers/deployment/
 
 为了更好的解决服务编排的问题，kubernetes在V1.2版本开始，引入了Deployment控制器。值得一提的是，这种控制器并不直接管理pod，而是通过管理ReplicaSet来简介管理Pod，即：Deployment管理ReplicaSet，ReplicaSet管理Pod。所以Deployment比ReplicaSet功能更加强大。
 
@@ -5310,8 +5356,10 @@ spec:
 deployment.apps/pc-deployment created
 
 # 查看deployment
+# NAME 列出了名字空间中 Deployment 的名称。
 # UP-TO-DATE 最新版本的pod的数量
 # AVAILABLE  当前可用的pod的数量
+# AGE 显示应用程序运行的时间
 [root@k8s-master01 ~]# kubectl get deploy pc-deployment -n dev
 NAME            READY   UP-TO-DATE   AVAILABLE   AGE
 pc-deployment   3/3     3            3           15s
@@ -5329,6 +5377,17 @@ pc-deployment-6696798b78-d2c8n   1/1     Running   0          107s
 pc-deployment-6696798b78-smpvp   1/1     Running   0          107s
 pc-deployment-6696798b78-wvjd8   1/1     Running   0          107s
 ```
+
+要查看 Deployment 上线状态，运行 **`kubectl rollout status deployment/nginx-deployment`**。
+
+输出类似于：
+
+```shell
+Waiting for rollout to finish: 2 out of 3 new replicas have been updated...
+deployment "nginx-deployment" successfully rolled out
+```
+
+
 
 ##### 6.5.3.2 扩缩容
 
