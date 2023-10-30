@@ -5572,6 +5572,7 @@ REVISION  CHANGE-CAUSE
 2         kubectl create --filename=pc-deployment.yaml --record=true
 3         kubectl create --filename=pc-deployment.yaml --record=true
 # 可以发现有三次版本记录，说明完成过两次升级
+# 仅当 Deployment 的 Pod 模板（.spec.template）发生更改时，才会创建新版本历史记录
 
 # 版本回滚
 # 这里直接使用--to-revision=1回滚到了1版本， 如果省略这个选项，就是回退到上个版本，就是2版本
@@ -5652,6 +5653,8 @@ deployment.apps "pc-deployment" deleted
 ```
 
 ### 6.6 StatefulSet
+
+
 
 ### 6.7 Horizontal Pod Autoscaler(HPA)
 
