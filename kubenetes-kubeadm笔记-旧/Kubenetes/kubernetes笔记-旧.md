@@ -5143,32 +5143,6 @@ pc-replicaset-fmb8f   1/1     Running   0          54s
 pc-replicaset-snrk2   1/1     Running   0          54s
 ```
 
-##### Pod-template-hash 标签
-
-Deployment 控制器将 `pod-template-hash` 标签添加到 Deployment 所创建或收留的每个 ReplicaSet 。此标签用于确保 Deployment 的子 ReplicaSets 不重叠。
-
-如下为两个不同的Deployment 控制器的标签情况：
-
-```shell
-[root@centos-master pod]# kubectl get pod --show-labels
-NAME                              READY   STATUS    RESTARTS   AGE   LABELS
-deploy-nginx-8599fc9455-5fvcp     1/1     Running   0          18m   app=deploy-nginx,pod-template-hash=8599fc9455
-deploy-nginx-8599fc9455-pb9lt     1/1     Running   0          18m   app=deploy-nginx,pod-template-hash=8599fc9455
-deploy-nginx-8599fc9455-wmhsx     1/1     Running   0          18m   app=deploy-nginx,pod-template-hash=8599fc9455
-deploy-nginx01-6d86f69454-c8jgg   1/1     Running   0          48s   app=deploy-nginx01,pod-template-hash=6d86f69454
-deploy-nginx01-6d86f69454-cjvl6   1/1     Running   0          48s   app=deploy-nginx01,pod-template-hash=6d86f69454
-deploy-nginx01-6d86f69454-snmzd   1/1     Running   0          48s   app=deploy-nginx01,pod-template-hash=6d86f69454
-[root@centos-master pod]# kubectl get rs --show-labels
-NAME                        DESIRED   CURRENT   READY   AGE   LABELS
-deploy-nginx-8599fc9455     3         3         3       18m   app=deploy-nginx,pod-template-hash=8599fc9455
-deploy-nginx01-6d86f69454   3         3         3       58s   app=deploy-nginx01,pod-template-hash=6d86f69454
-[root@centos-master pod]# kubectl get deployment --show-labels
-NAME             READY   UP-TO-DATE   AVAILABLE   AGE   LABELS
-deploy-nginx     3/3     3            3           18m   app=deploy-nginx
-deploy-nginx01   3/3     3            3           61s   app=deploy-nginx01
-
-```
-
 
 
 **扩缩容**
@@ -5209,6 +5183,8 @@ NAME                       READY   STATUS    RESTARTS   AGE
 pc-replicaset-fmb8f   1/1     Running   0          119m
 pc-replicaset-snrk2   1/1     Running   0          119m
 ```
+
+
 
 **镜像升级**
 
@@ -5270,7 +5246,10 @@ kubernetes是以标签的形式来管理POD的，所以这里牵涉到一个控�
    若手动更改控制器ReplicaSet控制的三个副本的标签（labels），假如更改了其中一个后，做删除ReplicaSet控制器的操作，那么当你在删除控制器的时候，被更改标签的那个POD副本不会被删除。
    ```
 
-   
+
+**重启策略**：`.spec.template.spec.restartPolicy`，唯一允许的取值是 `Always`，这也是默认值。
+
+
 
 #### 6.5.3 Deployment(Deploy)
 
@@ -5300,6 +5279,7 @@ metadata: # 元数据
     controller: deploy
 spec: # 详情描述
   replicas: 3 # 副本数量
+  
   revisionHistoryLimit: 3 # 保留历史版本(通过保留RS实现)，默认是10
   paused: false # 暂停部署，默认是false
   progressDeadlineSeconds: 600 # 部署超时时间（s），默认是600
@@ -5308,6 +5288,7 @@ spec: # 详情描述
     rollingUpdate: # 滚动更新
       maxSurge: 30% # 最大额外可以存在的副本数，可以为百分比，也可以为整数
       maxUnavailable: 30% # 最大不可用状态的 Pod 的最大值，可以为百分比，也可以为整数
+      
   selector: # 选择器，通过它指定该控制器管理哪些pod
     matchLabels:      # Labels匹配规则
       app: nginx-pod
@@ -5594,7 +5575,35 @@ pc-deployment-966bf7f44    0         0         0       37m
 pc-deployment-c848d767     0         0         0       71m
 ```
 
-##### 6.5.3.4 金丝雀发布
+##### 6.5.3.4 Pod-template-hash 标签
+
+Deployment 控制器将 `pod-template-hash` 标签添加到 Deployment 所创建或收留的每个 ReplicaSet 。此标签用于确保 Deployment 的子 ReplicaSets 不重叠。
+
+如下为两个不同的Deployment 控制器的标签情况：
+
+```shell
+[root@centos-master pod]# kubectl get pod --show-labels
+NAME                              READY   STATUS    RESTARTS   AGE   LABELS
+deploy-nginx-8599fc9455-5fvcp     1/1     Running   0          18m   app=deploy-nginx,pod-template-hash=8599fc9455
+deploy-nginx-8599fc9455-pb9lt     1/1     Running   0          18m   app=deploy-nginx,pod-template-hash=8599fc9455
+deploy-nginx-8599fc9455-wmhsx     1/1     Running   0          18m   app=deploy-nginx,pod-template-hash=8599fc9455
+deploy-nginx01-6d86f69454-c8jgg   1/1     Running   0          48s   app=deploy-nginx01,pod-template-hash=6d86f69454
+deploy-nginx01-6d86f69454-cjvl6   1/1     Running   0          48s   app=deploy-nginx01,pod-template-hash=6d86f69454
+deploy-nginx01-6d86f69454-snmzd   1/1     Running   0          48s   app=deploy-nginx01,pod-template-hash=6d86f69454
+[root@centos-master pod]# kubectl get rs --show-labels
+NAME                        DESIRED   CURRENT   READY   AGE   LABELS
+deploy-nginx-8599fc9455     3         3         3       18m   app=deploy-nginx,pod-template-hash=8599fc9455
+deploy-nginx01-6d86f69454   3         3         3       58s   app=deploy-nginx01,pod-template-hash=6d86f69454
+[root@centos-master pod]# kubectl get deployment --show-labels
+NAME             READY   UP-TO-DATE   AVAILABLE   AGE   LABELS
+deploy-nginx     3/3     3            3           18m   app=deploy-nginx
+deploy-nginx01   3/3     3            3           61s   app=deploy-nginx01
+
+```
+
+
+
+##### 6.5.3.5 金丝雀发布
 
 Deployment控制器支持控制更新过程中的控制，如“暂停(pause)”或“继续(resume)”更新操作。
 
@@ -5654,7 +5663,11 @@ deployment.apps "pc-deployment" deleted
 
 ### 6.6 StatefulSet
 
+StatefulSet 是用来管理有状态应用的工作负载 API 对象。
 
+StatefulSet 控制器特点：
+
+- 
 
 ### 6.7 Horizontal Pod Autoscaler(HPA)
 
