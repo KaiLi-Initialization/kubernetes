@@ -5540,22 +5540,45 @@ kubectl rollout： 版本升级相关功能，支持下面的选项：
 - restart    重启版本升级过程
 - undo 回滚到上一级版本（可以使用--to-revision回滚到指定版本）
 
+###### 版本确认
+
+查看当前升级版本的状态
+
 ```shell
-# 查看当前升级版本的状态
 [root@k8s-master01 ~]# kubectl rollout status deploy pc-deployment -n dev
 deployment "pc-deployment" successfully rolled out
+```
 
-# 查看升级历史记录
+查看升级历史记录
+
+```shell
 [root@k8s-master01 ~]# kubectl rollout history deploy pc-deployment -n dev
 deployment.apps/pc-deployment
 REVISION  CHANGE-CAUSE
 1         kubectl create --filename=pc-deployment.yaml --record=true
 2         kubectl create --filename=pc-deployment.yaml --record=true
 3         kubectl create --filename=pc-deployment.yaml --record=true
+
 # 可以发现有三次版本记录，说明完成过两次升级
 # 仅当 Deployment 的 Pod 模板（.spec.template）发生更改时，才会创建新版本历史记录
+```
 
-# 版本回滚
+`CHANGE-CAUSE` 的内容是从 Deployment 的 `kubernetes.io/change-cause` 注解复制过来的。 复制动作发生在修订版本创建时。你可以通过以下方式设置 `CHANGE-CAUSE` 消息：
+
+- 使用 `kubectl annotate deployment/nginx-deployment kubernetes.io/change-cause="image updated to 1.16.1"` 为 Deployment 添加注解。
+- 手动编辑资源的清单。
+
+要查看修订历史的详细信息
+
+```shell
+[root@k8s-master01 ~]# kubectl rollout history deployment/pc-deployment --revision=2
+```
+
+
+
+###### 版本回滚
+
+```shell
 # 这里直接使用--to-revision=1回滚到了1版本， 如果省略这个选项，就是回退到上个版本，就是2版本
 [root@k8s-master01 ~]# kubectl rollout undo deployment pc-deployment --to-revision=1 -n dev
 deployment.apps/pc-deployment rolled back
@@ -5574,6 +5597,8 @@ pc-deployment-6696798b78   4         4         4       78m
 pc-deployment-966bf7f44    0         0         0       37m
 pc-deployment-c848d767     0         0         0       71m
 ```
+
+
 
 ##### 6.5.3.4 Pod-template-hash 标签
 
@@ -5913,11 +5938,13 @@ metadata: # 元数据
   labels: #标签
     controller: daemonset
 spec: # 详情描述
+
   revisionHistoryLimit: 3 # 保留历史版本
   updateStrategy: # 更新策略
     type: RollingUpdate # 滚动更新策略
     rollingUpdate: # 滚动更新
       maxUnavailable: 1 # 最大不可用状态的 Pod 的最大值，可以为百分比，也可以为整数
+      
   selector: # 选择器，通过它指定该控制器管理哪些pod
     matchLabels:      # Labels匹配规则
       app: nginx-pod
