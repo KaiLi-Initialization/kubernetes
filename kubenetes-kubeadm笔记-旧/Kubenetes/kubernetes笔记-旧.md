@@ -5692,7 +5692,79 @@ StatefulSet 是用来管理有状态应用的工作负载 API 对象。
 
 StatefulSet 控制器特点：
 
-- 
+- 稳定的、唯一的网络标识符。
+
+- 稳定的、持久的存储。
+
+  ```shell
+  当 Pod 或者 StatefulSet 被删除时，与 PersistentVolumeClaims 相关联的 PersistentVolume 并不会被删除。要删除它必须通过手动方式来完成。
+  ```
+
+  
+
+- 有序的、优雅的部署和扩缩。
+
+- 有序的、自动的滚动更新。
+
+```shell
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  ports:
+  - port: 80
+    name: web
+  clusterIP: None
+  selector:
+    app: nginx
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: web
+spec:
+  selector:
+    matchLabels:
+      app: nginx # 必须匹配 .spec.template.metadata.labels
+  serviceName: "nginx"
+  replicas: 3 
+  minReadySeconds: 10 # 默认值是 0,它指定新创建的 Pod 应该在没有任何容器崩溃的情况下运行并准备就绪，才能被认为是可用的。用于在使用滚动更新策略时检查滚动的进度。
+  template:
+    metadata:
+      labels:
+        app: nginx # 必须匹配 .spec.selector.matchLabels
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: nginx
+        image: registry.k8s.io/nginx-slim:0.8
+        ports:
+        - containerPort: 80
+          name: web
+          
+          
+        volumeMounts:
+        - name: www
+          mountPath: /usr/share/nginx/html
+  volumeClaimTemplates:
+  - metadata:
+      name: www
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "my-storage-class"
+      resources:
+        requests:
+          storage: 1Gi
+```
+
+
+
+
+
+#### 稳定的网络ID（重要）
 
 ### 6.7 Horizontal Pod Autoscaler(HPA)
 
