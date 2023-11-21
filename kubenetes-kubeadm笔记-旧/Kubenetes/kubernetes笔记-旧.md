@@ -5706,58 +5706,207 @@ StatefulSet 控制器特点：
 
 - 有序的、自动的滚动更新。
 
+
+
 ```shell
-apiVersion: v1
-kind: Service
-metadata:
-  name: nginx
-  labels:
-    app: nginx
-spec:
-  ports:
-  - port: 80
-    name: web
-  clusterIP: None
-  selector:
-    app: nginx
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: web
+  namespace: default
 spec:
+  minReadySeconds: 10        # 最小就绪时间， 默认值是 0，它指定新创建的 Pod 应该在没有任何容器崩溃的情况下运行并准备                                就绪，才能被认为是可用的。用于在使用滚动更新策略时检查滚动的进度。
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  podManagementPolicy: OrderedReady   # POD管理策略，默认为OrderedReady
+  replicas: 7
+  revisionHistoryLimit: 10   # 版本保存，用于版本滚动
   selector:
-    matchLabels:
-      app: nginx # 必须匹配 .spec.template.metadata.labels
-  serviceName: "nginx"
-  replicas: 3 
-  minReadySeconds: 10 # 默认值是 0,它指定新创建的 Pod 应该在没有任何容器崩溃的情况下运行并准备就绪，才能被认为是可用的。用于在使用滚动更新策略时检查滚动的进度。
+    matchLabels:  # 必须匹配 .spec.template.metadata.labels
+      app: nginx
+  serviceName: nginx    # 无头服务的名字
   template:
     metadata:
-      labels:
-        app: nginx # 必须匹配 .spec.selector.matchLabels
+      labels:     # 必须匹配 .spec.selector.matchLabels
+        app: nginx
     spec:
-      terminationGracePeriodSeconds: 10
       containers:
-      - name: nginx
-        image: registry.k8s.io/nginx-slim:0.8
+      - image: nginx
+        imagePullPolicy: Always
+        name: nginx
         ports:
         - containerPort: 80
           name: web
-          
-          
-        volumeMounts:
-        - name: www
-          mountPath: /usr/share/nginx/html
-  volumeClaimTemplates:
-  - metadata:
-      name: www
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "my-storage-class"
-      resources:
-        requests:
-          storage: 1Gi
+          protocol: TCP
+      restartPolicy: Always       # 重启策略
+      terminationGracePeriodSeconds: 10
+  updateStrategy:         # 更新策略
+    rollingUpdate:
+      partition: 3
+    type: RollingUpdate
+
+```
+
+
+
+POD管理策略
+
+```shell
+[root@centos-master ~]# kubectl explain statefulSet.spec.podManagementPolicy
+GROUP:      apps
+KIND:       StatefulSet
+VERSION:    v1
+
+FIELD: podManagementPolicy <string>
+
+DESCRIPTION:
+    podManagementPolicy controls how pods are created during initial scale up,
+    when replacing pods on nodes, or when scaling down. The default policy is
+    `OrderedReady`, where pods are created in increasing order (pod-0, then
+    pod-1, etc) and the controller will wait until each pod is ready before
+    continuing. When scaling down, the pods are removed in the opposite order.
+    The alternative policy is `Parallel` which will create pods in parallel to
+    match the desired scale without waiting, and on scale down will delete all
+    pods at once.
+    
+    Possible enum values:
+     - `"OrderedReady"` will create pods in strictly increasing order on scale
+    up and strictly decreasing order on scale down, progressing only when the
+    previous pod is ready or terminated. At most one pod will be changed at any
+    time.  # StatefulSet 的默认设置,有序管理
+     - `"Parallel"` will create and delete pods as soon as the stateful set
+    replica count is changed, and will not wait for pods to be ready or complete
+    termination.  # 并行管理：
+
+```
+
+- Parallel：并行管理，让 StatefulSet 控制器并行的启动或终止所有的 Pod， 启动或者终止其他 Pod 前，无需等待 Pod 进入 Running 和 Ready 或者完全停止状态。 这个选项只会影响扩缩操作的行为，更新则不会被影响。
+- OrderedReady：有序管理，是 StatefulSet 的默认设置。
+
+yaml格式
+
+```shell
+spec:
+  podManagementPolicy: OrderedReady
+  
+# 或者
+
+spec:
+  podManagementPolicy: Parallel
+
+```
+
+
+
+更新策略（ updateStrategy）
+
+statefulSet的更新策略有两种
+
+- **OnDelete**：必须手动删除POD，然后依据`.spec.template`内容的变更触发控制器创建新POD。
+- **RollingUpdate**：`RollingUpdate` 更新策略对 StatefulSet 中的 Pod 执行自动的滚动更新。这是默认的更新策略。
+
+```shell
+[root@centos-master ~]# kubectl explain statefulSet.spec.updateStrategy
+GROUP:      apps
+KIND:       StatefulSet
+VERSION:    v1
+
+FIELD: updateStrategy <StatefulSetUpdateStrategy>
+
+DESCRIPTION:
+    updateStrategy indicates the StatefulSetUpdateStrategy that will be employed
+    to update Pods in the StatefulSet when a revision is made to Template.
+    StatefulSetUpdateStrategy indicates the strategy that the StatefulSet
+    controller will use to perform updates. It includes any additional
+    parameters necessary to perform the update for the indicated strategy.
+    
+FIELDS:
+  rollingUpdate	<RollingUpdateStatefulSetStrategy>
+    RollingUpdate is used to communicate parameters when Type is
+    RollingUpdateStatefulSetStrategyType.
+
+  type	<string>
+    Type indicates the type of the StatefulSetUpdateStrategy. Default is
+    RollingUpdate.
+    
+    Possible enum values:
+     - `"OnDelete"` triggers the legacy behavior. Version tracking and ordered
+    rolling restarts are disabled. Pods are recreated from the StatefulSetSpec
+    when they are manually deleted. When a scale operation is performed with
+    this strategy,specification version indicated by the StatefulSet's
+    currentRevision.
+     - `"RollingUpdate"` indicates that update will be applied to all Pods in
+    the StatefulSet with respect to the StatefulSet ordering constraints. When a
+    scale operation is performed with this strategy, new Pods will be created
+    from the specification version indicated by the StatefulSet's
+    updateRevision.
+
+```
+
+yaml书写格式
+
+```shell
+updateStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        partition: 0
+
+# 或者
+
+updateStrategy:
+      type: OnDelete
+```
+
+滚动更新（RollingUpdate）
+
+```shell
+[root@centos-master ~]# kubectl explain statefulSet.spec.updateStrategy.rollingUpdate
+GROUP:      apps
+KIND:       StatefulSet
+VERSION:    v1
+
+FIELD: rollingUpdate <RollingUpdateStatefulSetStrategy>
+
+DESCRIPTION:
+    RollingUpdate is used to communicate parameters when Type is
+    RollingUpdateStatefulSetStrategyType.
+    RollingUpdateStatefulSetStrategy is used to communicate parameter for
+    RollingUpdateStatefulSetStrategyType.
+    
+FIELDS:
+  maxUnavailable	<IntOrString>
+    The maximum number of pods that can be unavailable during the update. Value
+    can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).
+    Absolute number is calculated from percentage by rounding up. This can not
+    be 0. Defaults to 1. This field is alpha-level and is only honored by
+    servers that enable the MaxUnavailableStatefulSet feature. The field applies
+    to all pods in the range 0 to Replicas-1. That means if there is any
+    unavailable pod in the range 0 to Replicas-1, it will be counted towards
+    MaxUnavailable.
+
+  partition	<integer>  # 分区滚动更新
+    Partition indicates the ordinal at which the StatefulSet should be
+    partitioned for updates. During a rolling update, all pods from ordinal
+    Replicas-1 to Partition are updated. All pods from ordinal Partition-1 to 0
+    remain untouched. This is helpful in being able to do a canary based
+    deployment. The default value is 0.
+
+```
+
+yaml书写格式
+
+```shell
+updateStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        partition: 3   # 只更新pod序号等于大于partition-1指定的pod,小于partition-1序号的POD不更新；若partition大                          于replica则POD不牵涉更新，默认值是0。
+
+updateStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: 3  # 指定一次滚动更新的POD数量，此数字必须小于replica，默认值是1。
+                            #maxUnavailable 字段处于 Alpha 阶段，仅当 API 服务器启用了                                                    MaxUnavailableStatefulSet 特性门控时才起作用。
 ```
 
 
@@ -5765,6 +5914,10 @@ spec:
 
 
 #### 稳定的网络ID（重要）
+
+
+
+
 
 ### 6.7 Horizontal Pod Autoscaler(HPA)
 
