@@ -7244,7 +7244,7 @@ TCP  10.97.97.97:80 rr
 
 Endpoint是kubernetes中的一个资源对象，存储在etcd中，用来记录一个service对应的所有pod的访问地址，它是根据service配置文件中selector描述产生的。
 
-一个Service由一组Pod组成，这些Pod通过Endpoints暴露出来，**Endpoints是实现实际服务的端点集合**。换句话说，service和pod之间的联系是通过endpoints实现的。
+一个Service由一组Pod组成，这些Pod通过Endpoints暴露出来，**Endpoints是实现实际服务的端点集合**。换句话说，**service和pod之间的联系是通过endpoints实现的**。
 
 ![image-20200509191917069](了解service-06)
 
@@ -7295,13 +7295,13 @@ TCP  10.97.97.97:80 rr persistent 10800
 service "service-clusterip" deleted
 ```
 
-#### 4） HeadLiness类型的Service
+#### 4） HeadLess（无头）类型的Service
 
-在某些场景中，开发人员可能不想使用Service提供的负载均衡功能，而希望自己来控制负载均衡策略，针对这种情况，**kubernetes提供了HeadLiness Service，这类Service不会分配Cluster IP，kube-proxy不会为其创建负载转发规则，而服务名（DNS域名）的解析机制取决于该Headless Service是否设置了Label Selector。**
+在某些场景中，开发人员可能不想使用Service提供的负载均衡功能，而希望自己来控制负载均衡策略，针对这种情况，**kubernetes提供了HeadLess Service，这类Service不会分配Cluster IP，kube-proxy不会为其创建负载转发规则，而服务名（DNS域名）的解析机制取决于该Headless Service是否设置了Label Selector。**
 
 - **Headless Service设置了Label Selector**
 
-  如果Headless Service设置了Label Selector，Kubernetes则将根据Label Selector查询后端Pod列表，自动创建Endpoint列表，将服务名（DNS域名）的解析机制设置为：当客户端访问该服务名时，得到的是全部Endpoint列表（而不是一个确定的IP地址）。
+  如果Headless Service设置了Label Selector，Kubernetes则将**根据Label Selector查询后端Pod列表**，自动创建Endpoint列表，将服务名（DNS域名）的解析机制设置为：当客户端访问该服务名时，得到的是全部Endpoint列表（而不是一个确定的IP地址）。
 
   **例如：**
 
@@ -7316,8 +7316,8 @@ service "service-clusterip" deleted
   spec:
     selector:
       app: nginx-pod
-    clusterIP: None # 将clusterIP设置为None，即可创建headliness Service
-    type: ClusterIP
+    clusterIP: None # 将clusterIP设置为None，即可创建HeadLiess Service
+    type: ClusterIP # service类型设置为：ClusterIP
     ports:
     - port: 80    
       targetPort: 80
@@ -7542,7 +7542,7 @@ Service的DNS域名表示方法为<servicename>.<namespace>.svc.<clusterdomain>�
 
 对于Pod来说，DNS域名格式的Service名称提供的是稳定、不变的访问地址，可以大大简化客户端应用的配置，是Kubernetes集群中推荐的使用方式。
 
-### 7.7 端点分片与服务拓扑（不懂）
+### 7.7 EndpointSlice（不懂）
 
 **官方文档：**https://kubernetes.io/zh/docs/concepts/services-networking/endpoint-slices/
 
