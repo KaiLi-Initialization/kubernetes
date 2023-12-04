@@ -9399,6 +9399,217 @@ admin
 
 ## 九.网络原理
 
+### NetworkPolicy
+
+NetworkPolicy 是一种以应用为中心的结构，允许你设置如何允许 [Pod](https://kubernetes.io/zh-cn/docs/concepts/workloads/pods/) 与网络上的各类网络“实体” （我们这里使用实体以避免过度使用诸如“端点”和“服务”这类常用术语， 这些术语在 Kubernetes 中有特定含义）通信。
+
+Pod 可以与之通信的实体是通过如下三个标识符的组合来辩识的：
+
+- 被允许访问的Pod
+- 被允许访问的NameSpace
+- 被允许访问的IP（ 这些应该是集群外部 IP）范围
+
+网络策略是相加的，所以不会产生冲突。如果策略适用于 Pod 某一特定方向的流量， Pod 在对应方向所允许的连接是适用的网络策略所允许的集合。
+
+要允许从源 Pod 到目的 Pod 的连接，源 Pod 的出口策略和目的 Pod 的入口策略都需要允许连接。
+
+**NetworkPolicy 的示例:**
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: test-network-policy
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      role: db
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:     # 入向规则，定义哪些“实体”通过什么协议的哪个端口，可以访问labels为：role: db的Pod
+    - from:
+        - ipBlock:
+            cidr: 172.17.0.0/16
+            except:
+              - 172.17.1.0/24
+        - namespaceSelector:
+            matchLabels:
+              project: myproject
+        - podSelector:
+            matchLabels:
+              role: frontend
+      ports:
+        - protocol: TCP
+          port: 6379
+  egress:     # 出向规则，定义labels为：role: db的Pod，可以通过什么协议的哪个端口，去访问哪些Pod
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/24
+      ports:
+        - protocol: TCP
+          port: 5978
+```
+
+#### ingress的"from"和egress的"to"
+
+可以在 `ingress` 的 `from` 部分或 `egress` 的 `to` 部分中指定四种选择器：
+
+1. **podSelector**：此选择器将在与 NetworkPolicy 相同的名字空间中选择特定的 Pod，应将其允许作为入站流量来源或出站流量目的地。
+
+2. **namespaceSelector**：此选择器将选择特定的名字空间，应将所有 Pod 用作其入站流量来源或出站流量目的地。
+
+3. **namespaceSelector 和 podSelector**：一个指定 `namespaceSelector` 和 `podSelector` 的 `to`/`from` 条目选择特定名字空间中的特定 Pod。
+
+   - `to`/`from` 条目YAML 语法的两种书写方式：
+
+     1. 此策略在 `from` 数组中仅包含一个元素，只允许来自标有 `role=client` 的 Pod 且该 Pod 所在的名字空间中标有 `user=alice` 的连接。
+
+        ```yaml
+          ...
+          ingress:
+          - from:
+            - namespaceSelector:
+                matchLabels:
+                  user: alice
+              podSelector:
+                matchLabels:
+                  role: client
+          ...
+        ```
+
+        
+
+     2. 它在 `from` 数组中包含两个元素，允许来自本地名字空间中标有 `role=client` 的 Pod 的连接，**或**来自任何名字空间中标有 `user=alice` 的任何 Pod 的连接。
+
+        ```yaml
+          ...
+          ingress:
+          - from:
+            - namespaceSelector:
+                matchLabels:
+                  user: alice
+            - podSelector:
+                matchLabels:
+                  role: client
+          ...
+        ```
+
+        
+
+4. **ipBlock**：此选择器将选择特定的 IP CIDR 范围以用作入站流量来源或出站流量目的地。 这些应该是集群外部 IP，因为 Pod IP 存在时间短暂的且随机产生。
+
+
+
+### 默认策略
+
+默认情况下，如果名字空间中不存在任何策略，则所有进出该名字空间中 Pod 的流量都被允许。
+
+- 默认拒绝所有入站流量
+
+  你可以通过创建选择所有 Pod 但不允许任何进入这些 Pod 的入站流量的 NetworkPolicy 来为名字空间创建 “default” 隔离策略。
+
+  ```yaml
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: default-deny-ingress
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Ingress
+  ```
+
+  这确保即使没有被任何其他 NetworkPolicy 选择的 Pod 仍将被隔离以进行入口。 此策略不影响任何 Pod 的出口隔离。
+
+  
+
+- 允许所有入站流量
+
+  如果你想允许一个名字空间中所有 Pod 的所有入站连接，你可以创建一个明确允许的策略。
+
+  ```yaml
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: allow-all-ingress
+  spec:
+    podSelector: {}
+    ingress:
+    - {}
+    policyTypes:
+    - Ingress
+  ```
+
+  有了这个策略，任何额外的策略都不会导致到这些 Pod 的任何入站连接被拒绝。 此策略对任何 Pod 的出口隔离没有影响。
+
+  
+
+- 默认拒绝所有出站流量
+
+  你可以通过创建选择所有容器但不允许来自这些容器的任何出站流量的 NetworkPolicy 来为名字空间创建 “default” 隔离策略。
+
+  ```yaml
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: default-deny-egress
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Egress
+  ```
+
+  此策略可以确保即使没有被其他任何 NetworkPolicy 选择的 Pod 也不会被允许流出流量。 此策略不会更改任何 Pod 的入站流量隔离行为。
+
+  
+
+- 允许所有出站流量
+
+  如果要允许来自名字空间中所有 Pod 的所有连接， 则可以创建一个明确允许来自该名字空间中 Pod 的所有出站连接的策略。
+
+  ```yaml
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: allow-all-egress
+  spec:
+    podSelector: {}
+    egress:
+    - {}
+    policyTypes:
+    - Egress
+  ```
+
+  有了这个策略，任何额外的策略都不会导致来自这些 Pod 的任何出站连接被拒绝。 此策略对进入任何 Pod 的隔离没有影响。
+
+  
+
+- 默认拒绝所有入站和所有出站流量
+
+  你可以为名字空间创建“默认”策略，以通过在该名字空间中创建以下 NetworkPolicy 来阻止所有入站和出站流量。
+
+  ```yaml
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: default-deny-all
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Ingress
+    - Egress
+  ```
+
+  此策略可以确保即使没有被其他任何 NetworkPolicy 选择的 Pod 也不会被允许入站或出站流量。
+
+## 网络流量过滤
+
+
+
+
+
 
 
 ## 十.集群安全机制
