@@ -8469,15 +8469,25 @@ PVC和PV是一一对应的，PV和PVC之间的相互作用遵循以下生命周�
 
 
 
-#### 8.3 ConfigMap概述（重点）
 
-**官方参考文档：**https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md
 
-**官方参考文档：** https://kubernetes.io/zh/docs/concepts/configuration/configmap/
+
+
+## 九.配置文件
+
+**官方参考文档：**[api-conventions.md](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md)
+
+**官方参考文档：** [configMap](https://kubernetes.io/zh/docs/concepts/configuration/configmap/)
+
+**官方参考文档：**[配置 Pod 使用 ConfigMap](https://kubernetes.io/zh-cn/docs/tasks/configure-pod-container/configure-pod-configmap/)
+
+**官方参考文档：**[使用 ConfigMap 来配置 Redis](https://kubernetes.io/zh-cn/docs/tasks/configure-pod-container/configure-pod-configmap/)
+
+### configMap概念
 
 **ConfigMap**是为了实现在部署应用时使**配置信息与程序分离**，对多个容器进行不同的配置进行一种统一的应用配置管理方案。（也就是说将容器所需要的的配置信息预定义到ConfigaMap中，创建Pod时将配置注入到容器中（活着说容器引用ConfigMap中的配置信息），来达到配置的统一管理）。
 
-##### 1） ConfigMap 对象
+#### 1） ConfigMap 对象
 
 **ConfigMap 是一种 API 对象（一种比较特殊的存储卷，主要作用是用来存储配置信息）**，以一个或多个**key：value**的形式用来将**非机密性的数据**保存到Kubernetes系统**键值对**中供应用使用。让你可以存储其他对象所需要使用的配置；既可以用于表示一个变量的值（如apploglevel=info）,也可以用于表示一个完整配置文件的内容（如server.xml）。
 
@@ -8499,7 +8509,7 @@ ConfigMap 在设计上不是用来保存大量数据的。在 ConfigMap 中保�
 
 
 
-##### 2） ConfigMaps 和 Pods
+#### 2） ConfigMaps 和 Pods
 
 我们可以写一个引用 ConfigMap 的 Pod 的 `spec`，并根据 ConfigMap 中的数据在该 Pod 中配置容器。**这个 Pod 和 ConfigMap 必须要在同一个 [名字空间](https://kubernetes.io/zh/docs/concepts/overview/working-with-objects/namespaces/) 中。**
 
@@ -8584,7 +8594,7 @@ ConfigMap 不会区分单行属性值和多行类似文件的值，重要的是 
 
 上面的例子定义了一个卷并将它作为 `/config` 文件夹挂载到 `demo` 容器内， 创建两个文件，`/config/game.properties` 和 `/config/user-interface.properties`， 尽管 ConfigMap 中包含了四个键。 这是因为 Pod 定义中在 `volumes` 节指定了一个 `items` 数组。 如果你完全忽略 `items` 数组，则 ConfigMap 中的每个键都会变成一个与该键同名的文件， 因此你会得到四个文件。
 
-##### 3） Pod中ConfigMap做文件使用
+#### 3） Pod中ConfigMap做文件使用
 
 要在一个 Pod 的存储卷中使用 ConfigMap:
 
@@ -8666,7 +8676,7 @@ immutable: true
 
 一旦某 ConfigMap 被标记为不可变更，则 *无法* 逆转这一变化，，也无法更改 `data` 或 `binaryData` 字段的内容。你只能删除并重建 ConfigMap。 因为现有的 Pod 会维护一个已被删除的 ConfigMap 的挂载点，建议重新创建这些 Pods。
 
-#### 8.4  创建ConfigMap对象
+#### 创建ConfigMap对象
 
 **官方文档：**https://kubernetes.io/zh/docs/tasks/configure-pod-container/configure-pod-configmap/
 
@@ -9025,7 +9035,7 @@ data:
 
 
 
-#### 8.5 Pod中使用ConfigMap
+#### 使用ConfigMap
 
 **通过环境变量方式使用ConfigMap**
 
@@ -9233,7 +9243,7 @@ data:
   very charm
   ```
 
-#### 8.6 通过volumeMount使用ConfigMap
+#### 通过volumeMount使用ConfigMap
 
 1. 将 ConfigMap 数据添加到一个卷中
 
@@ -9307,9 +9317,7 @@ data:
 
 
 
-
-
-#### 8.7 [Secret](https://kubernetes.io/zh/docs/concepts/configuration/secret/)
+###  [Secret](https://kubernetes.io/zh/docs/concepts/configuration/secret/)
 
 在kubernetes中，还存在一种和ConfigMap非常类似的对象，称为[Secret](https://kubernetes.io/zh/docs/concepts/configuration/secret/)对象。它主要用于存储敏感信息，例如密码、秘钥、证书等等。
 
@@ -9397,7 +9405,7 @@ admin
 
 至此，已经实现了利用secret实现了信息的编码。
 
-## 九.网络原理
+## 十.网络原理
 
 ### NetworkPolicy
 
@@ -9606,17 +9614,68 @@ spec:
 
 ## 网络流量过滤
 
+#### 针对端口范围
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: multi-port-egress
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      role: db
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/24
+      ports:
+        - protocol: TCP
+          port: 32000
+          endPort: 32768   # 只有定义了port才能定义endPort，且必须endPort≥port
+```
+
+#### 多个名称空间
+
+在这种情况下，你的 `Egress` NetworkPolicy 使用名字空间的标签名称来将多个名字空间作为其目标。
+
+```yaml
+ kubectl label namespace frontend namespace=frontend
+ kubectl label namespace backend namespace=backend
+```
+
+在 NetworkPolicy 文档中的 namespaceSelector 下添加标签。
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: egress-namespaces
+spec:
+  podSelector:
+    matchLabels:
+      app: myapp
+  policyTypes:
+  - Egress
+  egress:
+   - to:
+     - namespaceSelector:
+       matchExpressions:
+       - key: namespace
+         operator: In
+         values: ["frontend", "backend"]
+```
 
 
 
+## 十一.集群安全机制
 
+## 十二.kubernetes运维管理
 
-
-## 十.集群安全机制
-
-## 十一.kubernetes运维管理
-
-## 十二. API配置
+## 十三. API配置
 
 **官方文档：**https://kubernetes.io/zh/docs/reference/config-api/
 
