@@ -8641,46 +8641,50 @@ spec:
 
 如果 Pod 中有多个容器，则每个容器都需要自己的 `volumeMounts` 块，但针对每个 ConfigMap，你只需要设置一个 `spec.volumes` 块。
 
- **ConfigMap自动更新机制**
+#### 4）ConfigMap配置更新机制
 
-当卷中使用的 ConfigMap 被更新时，所投射的键最终也会被更新。 kubelet 组件会在每次周期性同步时检查所挂载的 ConfigMap 是否为最新。 不过，kubelet 使用的是其本地的高速缓存来获得 ConfigMap 的当前值。 高速缓存的类型可以通过 [KubeletConfiguration 结构](https://kubernetes.io/zh/docs/reference/config-api/kubelet-config.v1beta1/). 的 `ConfigMapAndSecretChangeDetectionStrategy` 字段来配置。
+1.  **ConfigMap自动更新机制**
 
-ConfigMap 既可以通过 watch 操作实现内容传播（默认形式），也可实现基于 TTL 的缓存，还可以直接经过所有请求重定向到 API 服务器。 因此，从 ConfigMap 被更新的那一刻算起，到新的主键被投射到 Pod 中去， 这一时间跨度可能与 kubelet 的同步周期加上高速缓存的传播延迟相等。 这里的传播延迟取决于所选的高速缓存类型 （分别对应 watch 操作的传播延迟、高速缓存的 TTL 时长或者 0）。
+   当卷中使用的 ConfigMap 被更新时，所投射的键最终也会被更新。 kubelet 组件会在每次周期性同步时检查所挂载的 ConfigMap 是否为最新。 不过，kubelet 使用的是其本地的高速缓存来获得 ConfigMap 的当前值。 高速缓存的类型可以通过 [KubeletConfiguration 结构](https://kubernetes.io/zh/docs/reference/config-api/kubelet-config.v1beta1/). 的 `ConfigMapAndSecretChangeDetectionStrategy` 字段来配置。
 
-以环境变量方式使用的 ConfigMap 数据不会被自动更新。 更新这些数据需要重新启动 Pod。
+   ConfigMap 既可以通过 watch 操作实现内容传播（默认形式），也可实现基于 TTL 的缓存，还可以直接经过所有请求重定向到 API 服务器。 因此，从 ConfigMap 被更新的那一刻算起，到新的主键被投射到 Pod 中去， 这一时间跨度可能与 kubelet 的同步周期加上高速缓存的传播延迟相等。 这里的传播延迟取决于所选的高速缓存类型 （分别对应 watch 操作的传播延迟、高速缓存的 TTL 时长或者 0）。
 
-> **Note:** 使用 ConfigMap 作为 [subPath](https://kubernetes.io/zh/docs/concepts/storage/volumes#using-subpath) 卷挂载的容器将不会收到 ConfigMap 的更新。
+   以环境变量方式使用的 ConfigMap 数据不会被自动更新。 更新这些数据需要重新启动 Pod。
+
+   > **Note:** 使用 ConfigMap 作为 [subPath](https://kubernetes.io/zh/docs/concepts/storage/volumes#using-subpath) 卷挂载的容器将不会收到 ConfigMap 的更新。
 
 
 
-**不可变更的 ConfigMap **
+2. **不可变更的 ConfigMap **
 
-**FEATURE STATE:** `Kubernetes v1.21 [stable]`
+   **FEATURE STATE:** `Kubernetes v1.21 [stable]`
 
-Kubernetes 特性 *Immutable Secret 和 ConfigMaps* 提供了一种将各个 Secret 和 ConfigMap 设置为不可变更的选项。对于大量使用 ConfigMap 的集群 （至少有数万个各不相同的 ConfigMap 给 Pod 挂载）而言，禁止更改 ConfigMap 的数据有以下好处：
+   Kubernetes 特性 *Immutable Secret 和 ConfigMaps* 提供了一种将各个 Secret 和 ConfigMap 设置为不可变更的选项。对于大量使用 ConfigMap 的集群 （至少有数万个各不相同的 ConfigMap 给 Pod 挂载）而言，禁止更改 ConfigMap 的数据有以下好处：
 
-- 保护应用，使之免受意外（不想要的）更新所带来的负面影响。
-- 通过大幅降低对 kube-apiserver 的压力提升集群性能， 这是因为系统会关闭对已标记为不可变更的 ConfigMap 的监视操作。
+   - 保护应用，使之免受意外（不想要的）更新所带来的负面影响。
+   - 通过大幅降低对 kube-apiserver 的压力提升集群性能， 这是因为系统会关闭对已标记为不可变更的 ConfigMap 的监视操作。
 
-此功能特性由 `ImmutableEphemeralVolumes` [特性门控](https://kubernetes.io/zh/docs/reference/command-line-tools-reference/feature-gates/)来控制。 你可以通过将 `immutable` 字段设置为 `true` 创建不可变更的 ConfigMap。 例如：
+   此功能特性由 `ImmutableEphemeralVolumes` [特性门控](https://kubernetes.io/zh/docs/reference/command-line-tools-reference/feature-gates/)来控制。 你可以通过将 `immutable` 字段设置为 `true` 创建不可变更的 ConfigMap。 例如：
 
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  ...
-data:
-  ...
-immutable: true
-```
+   ```yaml
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     ...
+   data:
+     ...
+   immutable: true
+   ```
 
-一旦某 ConfigMap 被标记为不可变更，则 *无法* 逆转这一变化，，也无法更改 `data` 或 `binaryData` 字段的内容。你只能删除并重建 ConfigMap。 因为现有的 Pod 会维护一个已被删除的 ConfigMap 的挂载点，建议重新创建这些 Pods。
+   一旦某 ConfigMap 被标记为不可变更，则 *无法* 逆转这一变化，，也无法更改 `data` 或 `binaryData` 字段的内容。你只能删除并重建 ConfigMap。 因为现有的 Pod 会维护一个已被删除的 ConfigMap 的挂载点，建议重新创建这些 Pods。
 
-#### 创建ConfigMap对象
+
+
+### 创建ConfigMap对象
 
 **官方文档：**https://kubernetes.io/zh/docs/tasks/configure-pod-container/configure-pod-configmap/
 
-##### 命令创建 ConfigMap
+#### 命令创建 ConfigMap
 
 使用 `kubectl create configmap` 命令基于[目录](https://kubernetes.io/zh/docs/tasks/configure-pod-container/configure-pod-configmap/#create-configmaps-from-directories)、 [文件](https://kubernetes.io/zh/docs/tasks/configure-pod-container/configure-pod-configmap/#create-configmaps-from-files)或者[字面值](https://kubernetes.io/zh/docs/tasks/configure-pod-container/configure-pod-configmap/#create-configmaps-from-literal-values)来创建 ConfigMap：
 
@@ -8694,7 +8698,7 @@ kubectl create configmap <映射名称> <数据源>
 
 
 
-##### 1）基于目录创建 ConfigMap
+#### 1）基于目录创建 ConfigMap
 
 可以使用 `kubectl create configmap` 基于同一目录中的多个文件创建 ConfigMap。
 
@@ -8783,7 +8787,7 @@ data:
     how.nice.to.look=fairlyNice    
 ```
 
-##### 2）基于文件创建 ConfigMap
+#### 2）基于文件创建 ConfigMap
 
 我们可以使用 `kubectl create configmap` 基于单个文件或多个文件创建 ConfigMap。
 
@@ -8998,7 +9002,7 @@ data:
     secret.code.lives=30    
 ```
 
-##### 3）根据字面值创建 ConfigMap
+#### 3）根据字面值创建 ConfigMap
 
 你可以将 `kubectl create configmap` 与 `--from-literal` 参数一起使用， 通过命令行定义文字值：
 
@@ -9031,13 +9035,13 @@ data:
 
 
 
-##### 4） 基于生成器创建 ConfigMap（未完结）
+#### 4） 基于生成器创建 ConfigMap（未完结）
 
 
 
-#### 使用ConfigMap
+### 使用ConfigMap
 
-**通过环境变量方式使用ConfigMap**
+#### **通过环境变量方式使用ConfigMap**
 
 - **使用单个 ConfigMap 中的数据定义容器环境变量**
 
@@ -9417,7 +9421,7 @@ Pod 可以与之通信的实体是通过如下三个标识符的组合来辩识�
 - 被允许访问的NameSpace
 - 被允许访问的IP（ 这些应该是集群外部 IP）范围
 
-网络策略是相加的，所以不会产生冲突。如果策略适用于 Pod 某一特定方向的流量， Pod 在对应方向所允许的连接是适用的网络策略所允许的集合。
+**网络策略是相加的，所以不会产生冲突**。如果策略适用于 Pod 某一特定方向的流量， Pod 在对应方向所允许的连接是适用的网络策略所允许的集合。
 
 要允许从源 Pod 到目的 Pod 的连接，源 Pod 的出口策略和目的 Pod 的入口策略都需要允许连接。
 
@@ -9432,30 +9436,30 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      role: db
+      role: db     # 此NetworkPolicy仅作用于标签为： role: db的Pod
   policyTypes:
     - Ingress
     - Egress
   ingress:     # 入向规则，定义哪些“实体”通过什么协议的哪个端口，可以访问labels为：role: db的Pod
     - from:
-        - ipBlock:
+        - ipBlock:                 # 允许哪些IP范围，可以访问
             cidr: 172.17.0.0/16
             except:
               - 172.17.1.0/24
-        - namespaceSelector:
+        - namespaceSelector:       # 允许此名称空间标签为：project: myproject的Pod，可以访问
             matchLabels:
-              project: myproject
-        - podSelector:
+              project: myproject  
+        - podSelector:             # 允许标签为：role: frontend的Pod，可以访问
             matchLabels:
-              role: frontend
-      ports:
+              role: frontend 
+      ports:                       # 允许外部通过什么协议和端口访问
         - protocol: TCP
           port: 6379
-  egress:     # 出向规则，定义labels为：role: db的Pod，可以通过什么协议的哪个端口，去访问哪些Pod
+  egress:      # 出向规则，定义labels为：role: db的Pod，可以通过什么协议的哪个端口，去访问哪些Pod
     - to:
-        - ipBlock:
+        - ipBlock:                 # 可以去访问哪些IP地址范围
             cidr: 10.0.0.0/24
-      ports:
+      ports:                       # 可以通过什么协议和端口访问外部
         - protocol: TCP
           port: 5978
 ```
@@ -9477,7 +9481,7 @@ spec:
         ```yaml
           ...
           ingress:
-          - from:
+          - from:   # 此种写法需要满足所有规则才可通过
             - namespaceSelector:
                 matchLabels:
                   user: alice
@@ -9494,7 +9498,7 @@ spec:
         ```yaml
           ...
           ingress:
-          - from:
+          - from:  # 此种写法满足规则中的一条即可通过
             - namespaceSelector:
                 matchLabels:
                   user: alice
