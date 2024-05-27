@@ -7244,7 +7244,7 @@ TCP  10.97.97.97:80 rr
 
 Endpoint是kubernetes中的一个资源对象，存储在etcd中，用来记录一个service对应的所有pod的访问地址，它是根据service配置文件中selector描述产生的。
 
-一个Service由一组Pod组成，这些Pod通过Endpoints暴露出来，**Endpoints是实现实际服务的端点集合**。换句话说，service和pod之间的联系是通过endpoints实现的。
+一个Service由一组Pod组成，这些Pod通过Endpoints暴露出来，**Endpoints是实现实际服务的端点集合**。换句话说，**service和pod之间的联系是通过endpoints实现的**。
 
 ![image-20200509191917069](了解service-06)
 
@@ -7295,13 +7295,13 @@ TCP  10.97.97.97:80 rr persistent 10800
 service "service-clusterip" deleted
 ```
 
-#### 4） HeadLiness类型的Service
+#### 4） HeadLess（无头）类型的Service
 
-在某些场景中，开发人员可能不想使用Service提供的负载均衡功能，而希望自己来控制负载均衡策略，针对这种情况，**kubernetes提供了HeadLiness Service，这类Service不会分配Cluster IP，kube-proxy不会为其创建负载转发规则，而服务名（DNS域名）的解析机制取决于该Headless Service是否设置了Label Selector。**
+在某些场景中，开发人员可能不想使用Service提供的负载均衡功能，而希望自己来控制负载均衡策略，针对这种情况，**kubernetes提供了HeadLess Service，这类Service不会分配Cluster IP，kube-proxy不会为其创建负载转发规则，而服务名（DNS域名）的解析机制取决于该Headless Service是否设置了Label Selector。**
 
 - **Headless Service设置了Label Selector**
 
-  如果Headless Service设置了Label Selector，Kubernetes则将根据Label Selector查询后端Pod列表，自动创建Endpoint列表，将服务名（DNS域名）的解析机制设置为：当客户端访问该服务名时，得到的是全部Endpoint列表（而不是一个确定的IP地址）。
+  如果Headless Service设置了Label Selector，Kubernetes则将**根据Label Selector查询后端Pod列表**，自动创建Endpoint列表，将服务名（DNS域名）的解析机制设置为：当客户端访问该服务名时，得到的是全部Endpoint列表（而不是一个确定的IP地址）。
 
   **例如：**
 
@@ -7316,8 +7316,8 @@ service "service-clusterip" deleted
   spec:
     selector:
       app: nginx-pod
-    clusterIP: None # 将clusterIP设置为None，即可创建headliness Service
-    type: ClusterIP
+    clusterIP: None # 将clusterIP设置为None，即可创建HeadLiess Service
+    type: ClusterIP # service类型设置为：ClusterIP
     ports:
     - port: 80    
       targetPort: 80
@@ -7542,7 +7542,7 @@ Service的DNS域名表示方法为<servicename>.<namespace>.svc.<clusterdomain>�
 
 对于Pod来说，DNS域名格式的Service名称提供的是稳定、不变的访问地址，可以大大简化客户端应用的配置，是Kubernetes集群中推荐的使用方式。
 
-### 7.7 端点分片与服务拓扑（不懂）
+### 7.7 EndpointSlice（不懂）
 
 **官方文档：**https://kubernetes.io/zh/docs/concepts/services-networking/endpoint-slices/
 
@@ -8469,15 +8469,25 @@ PVC和PV是一一对应的，PV和PVC之间的相互作用遵循以下生命周�
 
 
 
-#### 8.3 ConfigMap概述（重点）
 
-**官方参考文档：**https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md
 
-**官方参考文档：** https://kubernetes.io/zh/docs/concepts/configuration/configmap/
+
+
+## 九.配置文件
+
+**官方参考文档：**[api-conventions.md](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md)
+
+**官方参考文档：** [configMap](https://kubernetes.io/zh/docs/concepts/configuration/configmap/)
+
+**官方参考文档：**[配置 Pod 使用 ConfigMap](https://kubernetes.io/zh-cn/docs/tasks/configure-pod-container/configure-pod-configmap/)
+
+**官方参考文档：**[使用 ConfigMap 来配置 Redis](https://kubernetes.io/zh-cn/docs/tasks/configure-pod-container/configure-pod-configmap/)
+
+### configMap概念
 
 **ConfigMap**是为了实现在部署应用时使**配置信息与程序分离**，对多个容器进行不同的配置进行一种统一的应用配置管理方案。（也就是说将容器所需要的的配置信息预定义到ConfigaMap中，创建Pod时将配置注入到容器中（活着说容器引用ConfigMap中的配置信息），来达到配置的统一管理）。
 
-##### 1） ConfigMap 对象
+#### 1） ConfigMap 对象
 
 **ConfigMap 是一种 API 对象（一种比较特殊的存储卷，主要作用是用来存储配置信息）**，以一个或多个**key：value**的形式用来将**非机密性的数据**保存到Kubernetes系统**键值对**中供应用使用。让你可以存储其他对象所需要使用的配置；既可以用于表示一个变量的值（如apploglevel=info）,也可以用于表示一个完整配置文件的内容（如server.xml）。
 
@@ -8499,7 +8509,7 @@ ConfigMap 在设计上不是用来保存大量数据的。在 ConfigMap 中保�
 
 
 
-##### 2） ConfigMaps 和 Pods
+#### 2） ConfigMaps 和 Pods
 
 我们可以写一个引用 ConfigMap 的 Pod 的 `spec`，并根据 ConfigMap 中的数据在该 Pod 中配置容器。**这个 Pod 和 ConfigMap 必须要在同一个 [名字空间](https://kubernetes.io/zh/docs/concepts/overview/working-with-objects/namespaces/) 中。**
 
@@ -8584,7 +8594,7 @@ ConfigMap 不会区分单行属性值和多行类似文件的值，重要的是 
 
 上面的例子定义了一个卷并将它作为 `/config` 文件夹挂载到 `demo` 容器内， 创建两个文件，`/config/game.properties` 和 `/config/user-interface.properties`， 尽管 ConfigMap 中包含了四个键。 这是因为 Pod 定义中在 `volumes` 节指定了一个 `items` 数组。 如果你完全忽略 `items` 数组，则 ConfigMap 中的每个键都会变成一个与该键同名的文件， 因此你会得到四个文件。
 
-##### 3） Pod中ConfigMap做文件使用
+#### 3） Pod中ConfigMap做文件使用
 
 要在一个 Pod 的存储卷中使用 ConfigMap:
 
@@ -8631,46 +8641,50 @@ spec:
 
 如果 Pod 中有多个容器，则每个容器都需要自己的 `volumeMounts` 块，但针对每个 ConfigMap，你只需要设置一个 `spec.volumes` 块。
 
- **ConfigMap自动更新机制**
+#### 4）ConfigMap配置更新机制
 
-当卷中使用的 ConfigMap 被更新时，所投射的键最终也会被更新。 kubelet 组件会在每次周期性同步时检查所挂载的 ConfigMap 是否为最新。 不过，kubelet 使用的是其本地的高速缓存来获得 ConfigMap 的当前值。 高速缓存的类型可以通过 [KubeletConfiguration 结构](https://kubernetes.io/zh/docs/reference/config-api/kubelet-config.v1beta1/). 的 `ConfigMapAndSecretChangeDetectionStrategy` 字段来配置。
+1.  **ConfigMap自动更新机制**
 
-ConfigMap 既可以通过 watch 操作实现内容传播（默认形式），也可实现基于 TTL 的缓存，还可以直接经过所有请求重定向到 API 服务器。 因此，从 ConfigMap 被更新的那一刻算起，到新的主键被投射到 Pod 中去， 这一时间跨度可能与 kubelet 的同步周期加上高速缓存的传播延迟相等。 这里的传播延迟取决于所选的高速缓存类型 （分别对应 watch 操作的传播延迟、高速缓存的 TTL 时长或者 0）。
+   当卷中使用的 ConfigMap 被更新时，所投射的键最终也会被更新。 kubelet 组件会在每次周期性同步时检查所挂载的 ConfigMap 是否为最新。 不过，kubelet 使用的是其本地的高速缓存来获得 ConfigMap 的当前值。 高速缓存的类型可以通过 [KubeletConfiguration 结构](https://kubernetes.io/zh/docs/reference/config-api/kubelet-config.v1beta1/). 的 `ConfigMapAndSecretChangeDetectionStrategy` 字段来配置。
 
-以环境变量方式使用的 ConfigMap 数据不会被自动更新。 更新这些数据需要重新启动 Pod。
+   ConfigMap 既可以通过 watch 操作实现内容传播（默认形式），也可实现基于 TTL 的缓存，还可以直接经过所有请求重定向到 API 服务器。 因此，从 ConfigMap 被更新的那一刻算起，到新的主键被投射到 Pod 中去， 这一时间跨度可能与 kubelet 的同步周期加上高速缓存的传播延迟相等。 这里的传播延迟取决于所选的高速缓存类型 （分别对应 watch 操作的传播延迟、高速缓存的 TTL 时长或者 0）。
 
-> **Note:** 使用 ConfigMap 作为 [subPath](https://kubernetes.io/zh/docs/concepts/storage/volumes#using-subpath) 卷挂载的容器将不会收到 ConfigMap 的更新。
+   以环境变量方式使用的 ConfigMap 数据不会被自动更新。 更新这些数据需要重新启动 Pod。
+
+   > **Note:** 使用 ConfigMap 作为 [subPath](https://kubernetes.io/zh/docs/concepts/storage/volumes#using-subpath) 卷挂载的容器将不会收到 ConfigMap 的更新。
 
 
 
-**不可变更的 ConfigMap **
+2. **不可变更的 ConfigMap **
 
-**FEATURE STATE:** `Kubernetes v1.21 [stable]`
+   **FEATURE STATE:** `Kubernetes v1.21 [stable]`
 
-Kubernetes 特性 *Immutable Secret 和 ConfigMaps* 提供了一种将各个 Secret 和 ConfigMap 设置为不可变更的选项。对于大量使用 ConfigMap 的集群 （至少有数万个各不相同的 ConfigMap 给 Pod 挂载）而言，禁止更改 ConfigMap 的数据有以下好处：
+   Kubernetes 特性 *Immutable Secret 和 ConfigMaps* 提供了一种将各个 Secret 和 ConfigMap 设置为不可变更的选项。对于大量使用 ConfigMap 的集群 （至少有数万个各不相同的 ConfigMap 给 Pod 挂载）而言，禁止更改 ConfigMap 的数据有以下好处：
 
-- 保护应用，使之免受意外（不想要的）更新所带来的负面影响。
-- 通过大幅降低对 kube-apiserver 的压力提升集群性能， 这是因为系统会关闭对已标记为不可变更的 ConfigMap 的监视操作。
+   - 保护应用，使之免受意外（不想要的）更新所带来的负面影响。
+   - 通过大幅降低对 kube-apiserver 的压力提升集群性能， 这是因为系统会关闭对已标记为不可变更的 ConfigMap 的监视操作。
 
-此功能特性由 `ImmutableEphemeralVolumes` [特性门控](https://kubernetes.io/zh/docs/reference/command-line-tools-reference/feature-gates/)来控制。 你可以通过将 `immutable` 字段设置为 `true` 创建不可变更的 ConfigMap。 例如：
+   此功能特性由 `ImmutableEphemeralVolumes` [特性门控](https://kubernetes.io/zh/docs/reference/command-line-tools-reference/feature-gates/)来控制。 你可以通过将 `immutable` 字段设置为 `true` 创建不可变更的 ConfigMap。 例如：
 
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  ...
-data:
-  ...
-immutable: true
-```
+   ```yaml
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     ...
+   data:
+     ...
+   immutable: true
+   ```
 
-一旦某 ConfigMap 被标记为不可变更，则 *无法* 逆转这一变化，，也无法更改 `data` 或 `binaryData` 字段的内容。你只能删除并重建 ConfigMap。 因为现有的 Pod 会维护一个已被删除的 ConfigMap 的挂载点，建议重新创建这些 Pods。
+   一旦某 ConfigMap 被标记为不可变更，则 *无法* 逆转这一变化，，也无法更改 `data` 或 `binaryData` 字段的内容。你只能删除并重建 ConfigMap。 因为现有的 Pod 会维护一个已被删除的 ConfigMap 的挂载点，建议重新创建这些 Pods。
 
-#### 8.4  创建ConfigMap对象
+
+
+### 创建ConfigMap对象
 
 **官方文档：**https://kubernetes.io/zh/docs/tasks/configure-pod-container/configure-pod-configmap/
 
-##### 命令创建 ConfigMap
+#### 命令创建 ConfigMap
 
 使用 `kubectl create configmap` 命令基于[目录](https://kubernetes.io/zh/docs/tasks/configure-pod-container/configure-pod-configmap/#create-configmaps-from-directories)、 [文件](https://kubernetes.io/zh/docs/tasks/configure-pod-container/configure-pod-configmap/#create-configmaps-from-files)或者[字面值](https://kubernetes.io/zh/docs/tasks/configure-pod-container/configure-pod-configmap/#create-configmaps-from-literal-values)来创建 ConfigMap：
 
@@ -8684,7 +8698,7 @@ kubectl create configmap <映射名称> <数据源>
 
 
 
-##### 1）基于目录创建 ConfigMap
+#### 1）基于目录创建 ConfigMap
 
 可以使用 `kubectl create configmap` 基于同一目录中的多个文件创建 ConfigMap。
 
@@ -8773,7 +8787,7 @@ data:
     how.nice.to.look=fairlyNice    
 ```
 
-##### 2）基于文件创建 ConfigMap
+#### 2）基于文件创建 ConfigMap
 
 我们可以使用 `kubectl create configmap` 基于单个文件或多个文件创建 ConfigMap。
 
@@ -8988,7 +9002,7 @@ data:
     secret.code.lives=30    
 ```
 
-##### 3）根据字面值创建 ConfigMap
+#### 3）根据字面值创建 ConfigMap
 
 你可以将 `kubectl create configmap` 与 `--from-literal` 参数一起使用， 通过命令行定义文字值：
 
@@ -9021,13 +9035,13 @@ data:
 
 
 
-##### 4） 基于生成器创建 ConfigMap（未完结）
+#### 4） 基于生成器创建 ConfigMap（未完结）
 
 
 
-#### 8.5 Pod中使用ConfigMap
+### 使用ConfigMap
 
-**通过环境变量方式使用ConfigMap**
+#### **通过环境变量方式使用ConfigMap**
 
 - **使用单个 ConfigMap 中的数据定义容器环境变量**
 
@@ -9233,7 +9247,7 @@ data:
   very charm
   ```
 
-#### 8.6 通过volumeMount使用ConfigMap
+#### 通过volumeMount使用ConfigMap
 
 1. 将 ConfigMap 数据添加到一个卷中
 
@@ -9307,9 +9321,7 @@ data:
 
 
 
-
-
-#### 8.7 [Secret](https://kubernetes.io/zh/docs/concepts/configuration/secret/)
+###  [Secret](https://kubernetes.io/zh/docs/concepts/configuration/secret/)
 
 在kubernetes中，还存在一种和ConfigMap非常类似的对象，称为[Secret](https://kubernetes.io/zh/docs/concepts/configuration/secret/)对象。它主要用于存储敏感信息，例如密码、秘钥、证书等等。
 
@@ -9397,15 +9409,277 @@ admin
 
 至此，已经实现了利用secret实现了信息的编码。
 
-## 九.网络原理
+## 十.网络原理
+
+### NetworkPolicy
+
+NetworkPolicy 是一种以应用为中心的结构，允许你设置如何允许 [Pod](https://kubernetes.io/zh-cn/docs/concepts/workloads/pods/) 与网络上的各类网络“实体” （我们这里使用实体以避免过度使用诸如“端点”和“服务”这类常用术语， 这些术语在 Kubernetes 中有特定含义）通信。
+
+Pod 可以与之通信的实体是通过如下三个标识符的组合来辩识的：
+
+- 被允许访问的Pod
+- 被允许访问的NameSpace
+- 被允许访问的IP（ 这些应该是集群外部 IP）范围
+
+**网络策略是相加的，所以不会产生冲突**。如果策略适用于 Pod 某一特定方向的流量， Pod 在对应方向所允许的连接是适用的网络策略所允许的集合。
+
+要允许从源 Pod 到目的 Pod 的连接，源 Pod 的出口策略和目的 Pod 的入口策略都需要允许连接。
+
+**NetworkPolicy 的示例:**
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: test-network-policy
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      role: db     # 此NetworkPolicy仅作用于标签为： role: db的Pod
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:     # 入向规则，定义哪些“实体”通过什么协议的哪个端口，可以访问labels为：role: db的Pod
+    - from:
+        - ipBlock:                 # 允许哪些IP范围，可以访问
+            cidr: 172.17.0.0/16
+            except:
+              - 172.17.1.0/24
+        - namespaceSelector:       # 允许此名称空间标签为：project: myproject的Pod，可以访问
+            matchLabels:
+              project: myproject  
+        - podSelector:             # 允许标签为：role: frontend的Pod，可以访问
+            matchLabels:
+              role: frontend 
+      ports:                       # 允许外部通过什么协议和端口访问
+        - protocol: TCP
+          port: 6379
+  egress:      # 出向规则，定义labels为：role: db的Pod，可以通过什么协议的哪个端口，去访问哪些Pod
+    - to:
+        - ipBlock:                 # 可以去访问哪些IP地址范围
+            cidr: 10.0.0.0/24
+      ports:                       # 可以通过什么协议和端口访问外部
+        - protocol: TCP
+          port: 5978
+```
+
+#### ingress的"from"和egress的"to"
+
+可以在 `ingress` 的 `from` 部分或 `egress` 的 `to` 部分中指定四种选择器：
+
+1. **podSelector**：此选择器将在与 NetworkPolicy 相同的名字空间中选择特定的 Pod，应将其允许作为入站流量来源或出站流量目的地。
+
+2. **namespaceSelector**：此选择器将选择特定的名字空间，应将所有 Pod 用作其入站流量来源或出站流量目的地。
+
+3. **namespaceSelector 和 podSelector**：一个指定 `namespaceSelector` 和 `podSelector` 的 `to`/`from` 条目选择特定名字空间中的特定 Pod。
+
+   - `to`/`from` 条目YAML 语法的两种书写方式：
+
+     1. 此策略在 `from` 数组中仅包含一个元素，只允许来自标有 `role=client` 的 Pod 且该 Pod 所在的名字空间中标有 `user=alice` 的连接。
+
+        ```yaml
+          ...
+          ingress:
+          - from:   # 此种写法需要满足所有规则才可通过
+            - namespaceSelector:
+                matchLabels:
+                  user: alice
+              podSelector:
+                matchLabels:
+                  role: client
+          ...
+        ```
+
+        
+
+     2. 它在 `from` 数组中包含两个元素，允许来自本地名字空间中标有 `role=client` 的 Pod 的连接，**或**来自任何名字空间中标有 `user=alice` 的任何 Pod 的连接。
+
+        ```yaml
+          ...
+          ingress:
+          - from:  # 此种写法满足规则中的一条即可通过
+            - namespaceSelector:
+                matchLabels:
+                  user: alice
+            - podSelector:
+                matchLabels:
+                  role: client
+          ...
+        ```
+
+        
+
+4. **ipBlock**：此选择器将选择特定的 IP CIDR 范围以用作入站流量来源或出站流量目的地。 这些应该是集群外部 IP，因为 Pod IP 存在时间短暂的且随机产生。
 
 
 
-## 十.集群安全机制
+### 默认策略
 
-## 十一.kubernetes运维管理
+默认情况下，如果名字空间中不存在任何策略，则所有进出该名字空间中 Pod 的流量都被允许。
 
-## 十二. API配置
+- 默认拒绝所有入站流量
+
+  你可以通过创建选择所有 Pod 但不允许任何进入这些 Pod 的入站流量的 NetworkPolicy 来为名字空间创建 “default” 隔离策略。
+
+  ```yaml
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: default-deny-ingress
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Ingress
+  ```
+
+  这确保即使没有被任何其他 NetworkPolicy 选择的 Pod 仍将被隔离以进行入口。 此策略不影响任何 Pod 的出口隔离。
+
+  
+
+- 允许所有入站流量
+
+  如果你想允许一个名字空间中所有 Pod 的所有入站连接，你可以创建一个明确允许的策略。
+
+  ```yaml
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: allow-all-ingress
+  spec:
+    podSelector: {}
+    ingress:
+    - {}
+    policyTypes:
+    - Ingress
+  ```
+
+  有了这个策略，任何额外的策略都不会导致到这些 Pod 的任何入站连接被拒绝。 此策略对任何 Pod 的出口隔离没有影响。
+
+  
+
+- 默认拒绝所有出站流量
+
+  你可以通过创建选择所有容器但不允许来自这些容器的任何出站流量的 NetworkPolicy 来为名字空间创建 “default” 隔离策略。
+
+  ```yaml
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: default-deny-egress
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Egress
+  ```
+
+  此策略可以确保即使没有被其他任何 NetworkPolicy 选择的 Pod 也不会被允许流出流量。 此策略不会更改任何 Pod 的入站流量隔离行为。
+
+  
+
+- 允许所有出站流量
+
+  如果要允许来自名字空间中所有 Pod 的所有连接， 则可以创建一个明确允许来自该名字空间中 Pod 的所有出站连接的策略。
+
+  ```yaml
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: allow-all-egress
+  spec:
+    podSelector: {}
+    egress:
+    - {}
+    policyTypes:
+    - Egress
+  ```
+
+  有了这个策略，任何额外的策略都不会导致来自这些 Pod 的任何出站连接被拒绝。 此策略对进入任何 Pod 的隔离没有影响。
+
+  
+
+- 默认拒绝所有入站和所有出站流量
+
+  你可以为名字空间创建“默认”策略，以通过在该名字空间中创建以下 NetworkPolicy 来阻止所有入站和出站流量。
+
+  ```yaml
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: default-deny-all
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Ingress
+    - Egress
+  ```
+
+  此策略可以确保即使没有被其他任何 NetworkPolicy 选择的 Pod 也不会被允许入站或出站流量。
+
+## 网络流量过滤
+
+#### 针对端口范围
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: multi-port-egress
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      role: db
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/24
+      ports:
+        - protocol: TCP
+          port: 32000
+          endPort: 32768   # 只有定义了port才能定义endPort，且必须endPort≥port
+```
+
+#### 多个名称空间
+
+在这种情况下，你的 `Egress` NetworkPolicy 使用名字空间的标签名称来将多个名字空间作为其目标。
+
+```yaml
+ kubectl label namespace frontend namespace=frontend
+ kubectl label namespace backend namespace=backend
+```
+
+在 NetworkPolicy 文档中的 namespaceSelector 下添加标签。
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: egress-namespaces
+spec:
+  podSelector:
+    matchLabels:
+      app: myapp
+  policyTypes:
+  - Egress
+  egress:
+   - to:
+     - namespaceSelector:
+       matchExpressions:
+       - key: namespace
+         operator: In
+         values: ["frontend", "backend"]
+```
+
+
+
+## 十一.集群安全机制
+
+## 十二.kubernetes运维管理
+
+## 十三. API配置
 
 **官方文档：**https://kubernetes.io/zh/docs/reference/config-api/
 
