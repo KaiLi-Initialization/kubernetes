@@ -579,8 +579,8 @@ sudo yum-config-manager \
 EOF
 
 # 6、启动dokcer
-[root@master ~]# systemctl start docker
-[root@master ~]# systemctl enable docker
+[root@master ~]# systemctl start docker & systemctl enable docker
+
 ```
 
 ##### 3.6.10 删除docker
@@ -1298,6 +1298,10 @@ containerd已包含Kubernetes CRI 功能，和docker不同的是无需下载`cri
 二进制安装containerd需要**`runc`**和**`CNI`**插件的支持。
 
 #### 3.1.1 第 1 步：安装容器
+
+参考文档：https://github.com/containerd/containerd/blob/main/docs/getting-started.md
+
+下载地址：https://containerd.io/downloads/
 
 所有设备安装（`master`和`node`节点）
 
