@@ -367,9 +367,9 @@ docker history
         --network network                  Connect a container to a network
                                          # 为容器指定链接网络
     -p, --publish list                     Publish a container's port(s) to the host
-                                         # 
+                                         # 小写p,将容器端口映射为指定主机端口
     -P, --publish-all                      Publish all exposed ports to random ports
-                                         # 
+                                         # 大写P，将容器端口映射为随机主机端口
     --rm                                   Automatically remove the container when it                                                                                    exits
                                          # 退出容器时，删除该容器
     -t, --tty                              Allocate a pseudo-TTY
@@ -391,14 +391,21 @@ docker history
 - docker pause
 - docker container pause
 
+##### 取消暂停
+
+取消暂停一个或多个容器内的所有进程
+
+- docker unpause
+- ocker container unpause
+
+
+
 #### 容器列表
 
 - docker ps
 - docker container ps
 - docker container ls
 - docker container list
-
-#### 端口暴漏
 
 #### 容器删除
 
@@ -459,9 +466,37 @@ docker cp CONTAINER:/var/logs/ /tmp/app_logs
 #### 资源统计
 
 - docker stats
+
 - docker container stats
 
+  显示容器资源使用情况的实时统计信息，要将数据限制到一个或多个特定容器，请指定以空格分隔的容器名称或 ID 列表。
 
+  ```shell
+  Options:
+    -a, --all             Show all containers (default shows just running)
+                        # 显示所有正在运行的容器实时资源信息
+        --no-stream       Disable streaming stats and only pull the first result
+                        # 结果只刷新一次，如果不带此参数，每秒统计一次
+  
+  ```
+
+  **示例**
+
+  ```shell
+  # 显示容器centos-text；nginx-text的实时资源信息
+  [root@Viruses ~]# docker stats centos-text nginx-text
+  CONTAINER ID   NAME          CPU %     MEM USAGE / LIMIT    MEM %     NET I/O      BLOCK I/O        PIDS
+  50295086c162   centos-text   0.00%     1.5MiB / 1.734GiB    0.08%     936B / 0B    0B / 0B          2
+  58785a77da95   nginx-text    0.00%     2.41MiB / 1.734GiB   0.14%     1.3kB / 0B   135kB / 17.9kB   2
+  
+  # 将输出信息统计到文档stats.txt内
+  [root@Viruses ~]# docker stats --no-stream centos-text nginx-text > stats.txt
+  - --no-stream 参数：只显示一次统计信息，如果不带此参数，每秒统计一次
+  ```
+
+  
+
+  
 
 #### 容器管理
 
@@ -533,6 +568,9 @@ docker cp CONTAINER:/var/logs/ /tmp/app_logs
 #### 容器端口
 
 - docker port
+
+  格式：docker port CONTAINER [PRIVATE_PORT[/PROTO]]
+
 - docker container port
 
 #### 容器更新
@@ -556,19 +594,36 @@ docker cp CONTAINER:/var/logs/ /tmp/app_logs
   Options:
     -d, --driver string        Driver to manage the Network (default "bridge")
         --gateway strings      IPv4 or IPv6 Gateway for the master subnet
+                             # 设置IPV4和IPV6的网关
         --ingress              Create swarm routing-mesh network
+                             # 集群内网络访问
         --internal             Restrict external access to the network
+                             # 限制外部网络访问此网络
         --ip-range strings     Allocate container ip from a sub-range
+                             # 设置容器可使用IP地址
         --ipv6                 Enable IPv6 networking
+                             # 启用IPV6功能
         --label list           Set metadata on a network
+                             # 为此网络设置标签
         --scope string         Control the network's scope
         --subnet strings       Subnet in CIDR format that represents a network segment
+                             # 设置可用IP网段
   
   ```
+
+
 
 #### 连接网络
 
 - docker network connect
+
+#### 断开网络
+
+#### 网络列表
+
+#### 网络信息
+
+#### 网络删除
 
 ### Docker插件
 
