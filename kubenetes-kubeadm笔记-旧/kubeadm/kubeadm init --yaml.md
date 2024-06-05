@@ -1,2 +1,0 @@
-kubeadm init
-
