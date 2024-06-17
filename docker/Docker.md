@@ -185,6 +185,69 @@ Options:
 
 **docker pull：**
 
+### 配置镜像源
+
+如果需要加速镜像拉取速度，可以配置镜像加速器。国内用户常用的加速器有阿里云、腾讯云等。以阿里云为例，配置加速器的步骤如下：
+
+1. 登录阿里云容器镜像服务（ACR），找到加速器地址。
+
+2. 编辑Docker的配置文件，添加加速器地址：
+
+   ```shell
+   # Linux路径
+   /etc/docker/daemon.json
+   
+   # Windows路径
+   C:\ProgramData\docker\config\daemon.json
+   ```
+
+   在`daemon.json`文件中添加以下内容（如果文件不存在则新建）：
+
+   ```shell
+   {
+     "registry-mirrors": ["https://<your-accelerator>.mirror.aliyuncs.com"]
+   }
+   ```
+
+   如果需要配置更多的镜像源，可以在`daemon.json`文件中添加多个加速器地址：
+
+   ```shell
+   {
+     "registry-mirrors": [
+       "https://<your-accelerator1>.mirror.aliyuncs.com",
+       "https://<your-accelerator2>.mirror.tencentcloud.com"
+     ]
+   }
+   ```
+
+   
+
+   重启Docker以使配置生效：
+
+   ```shell
+   # Linux
+   sudo systemctl restart docker
+   
+   # Windows
+   Restart-Service docker
+   ```
+
+   
+
+### 配置私有仓库
+
+如果使用私有镜像仓库，可以通过以下方式配置：
+
+```
+docker login <your-private-registry>
+```
+
+然后拉取私有仓库中的镜像：
+
+```
+docker pull <your-private-registry>/your-image:tag
+```
+
 ### 镜像管理
 
 **docker images：**
