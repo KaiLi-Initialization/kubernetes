@@ -159,6 +159,71 @@ sudo rm -rf /var/lib/containerd
 
 
 
+## Docker二进制安装
+
+以`docker-20.10.7`版本为例
+
+1. **下载 Docker 二进制包**： 到 [Docker 官方 GitHub releases 页面](https://github.com/docker/docker-ce/releases) 下载适合你系统的二进制包，例如：
+
+   ```
+   wget https://download.docker.com/linux/static/stable/x86_64/docker-20.10.7.tgz
+   ```
+
+2. **解压下载的二进制包**：
+
+   ```
+   tar xzvf docker-20.10.7.tgz
+   ```
+
+3. **将 Docker 的二进制文件移动到系统的可执行路径中**：
+
+   ```
+   sudo mv docker/* /usr/local/bin/
+   ```
+
+4. **创建 Docker 服务文件**：
+
+   ```
+   sudo nano /etc/systemd/system/docker.service
+   ```
+
+   内容如下：
+
+   ```
+   [Unit]
+   Description=Docker Application Container Engine
+   Documentation=https://docs.docker.com
+   After=network-online.target firewalld.service
+   Wants=network-online.target
+   
+   [Service]
+   Type=notify
+   ExecStart=/usr/local/bin/dockerd
+   ExecReload=/bin/kill -s HUP $MAINPID
+   TimeoutSec=0
+   RestartSec=2
+   Restart=always
+   
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+5. **启动 Docker 服务**：
+
+   ```
+   sudo systemctl daemon-reload
+   sudo systemctl start docker
+   sudo systemctl enable docker
+   ```
+
+6. **验证 Docker 是否安装成功**：
+
+   ```
+   sudo docker run hello-world
+   ```
+
+这样就完成了二进制安装 Docker 的过程
+
 ## Docker-images
 
 ### 镜像查询
