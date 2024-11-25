@@ -1,10 +1,12 @@
+参考文档：https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+
 service是为pod群组提供网络服务的一种达到负载均衡方式。
 
 - 在pod群组中，pod的ip地址是随机分配的，当某一pod被重新删除与创建后ip会出现变动，无法确保固定访问。
 
-- service是为pod群组提供一个固定的ip地址，来解决外部访问pod的一种方式。
+- service是为pod群组提供一个固定的ip地址**（服务类型的不通，分配的IP地址不同）**，来解决外部访问pod的一种方式。
 
-- service也是通告labels选择器来选择访问pod的
+- service也是通过labels选择器来选择访问pod的
 
   ```yaml
   spec:
@@ -129,7 +131,7 @@ spec:
 
 [`NodePort`](https://kubernetes.io/zh-cn/docs/concepts/services-networking/service/#type-nodeport)类型
 
-可以通过访问Node上的ip和静态端口，来访问Kubernetes 会为 Service 配置集群 IP 地址（相当于你请求了 `type: ClusterIP` 的服务），从而访问pod终端。
+可以通过访问Node上的ip和静态端口，来访问Kubernetes 会为 Service 配置**集群 IP 地址**（相当于你请求了 `type: ClusterIP` 的服务），从而访问pod终端。
 
 Kubernetes 控制平面将在 --service-node-port-range 标志所指定的范围内分配端口（默认值：30000-32767）。每个节点将该端口（每个节点上的相同端口号）上的流量代理到你的 Service。
 
@@ -207,6 +209,14 @@ spec:
 
 参考文档：https://kubernetes.io/zh-cn/docs/reference/networking/virtual-ips/#traffic-policies
 
+https://kubernetes.io/zh-cn/docs/tutorials/services/connect-applications-service/
+
+
+
+相关文档：https://kubernetes.io/zh-cn/docs/reference/networking/virtual-ips/
+
+ 
+
 你可以设置 `.spec.internalTrafficPolicy` 和 `.spec.externalTrafficPolicy` 字段来控制 Kubernetes 如何将流量路由到健康（“就绪”）的后端。
 
 - 内部流量策略
@@ -224,4 +234,8 @@ spec:
 会话亲和性
 
 
+
+# EndpointSlice
+
+EndpointSlice作用是记录service服务所作用的POD对象的IP列表
 

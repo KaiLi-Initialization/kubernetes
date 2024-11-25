@@ -31,7 +31,7 @@ sudo docker run -d -p 5000:5000 --name registry --restart=always registry:2
 1. **标记镜像：** 将需要推送到私有仓库的镜像标记为私有仓库的格式。例如，假设镜像是 `nginx:latest`，私有仓库地址是 `localhost:5000`：
 
    ```
-   docker tag nginx:latest 101.132.173.221:5000/nginx:latest
+   docker tag nginx:latest 43.163.245.36:5000/nginx:latest
    ```
    
 2. **推送镜像：** 使用 `docker push` 命令将镜像推送到私有仓库：
@@ -57,22 +57,20 @@ docker pull 101.132.173.221:5000/nginx:latest
 1. **安装 `htpasswd` 工具：**
 
    ```
-   bash
-   复制代码
    sudo yum install -y httpd-tools
    ```
-
+   
 2. **创建认证文件：**
 
    ```
-   bash复制代码mkdir -p /etc/docker/registry
+   mkdir -p /etc/docker/registry
    htpasswd -Bc /etc/docker/registry/htpasswd myuser
    ```
 
 3. **运行带基本认证的 Docker Registry：**
 
    ```
-   bash复制代码sudo docker run -d -p 5000:5000 --name registry --restart=always \
+   sudo docker run -d -p 5000:5000 --name registry --restart=always \
      -v /etc/docker/registry:/auth \
      -e "REGISTRY_AUTH=htpasswd" \
      -e "REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm" \
@@ -85,14 +83,14 @@ docker pull 101.132.173.221:5000/nginx:latest
 1. **生成自签名证书：**
 
    ```
-   bash复制代码mkdir -p /etc/docker/certs
+   mkdir -p /etc/docker/certs
    openssl req -newkey rsa:4096 -nodes -sha256 -keyout /etc/docker/certs/domain.key -x509 -days 365 -out /etc/docker/certs/domain.crt
    ```
 
 2. **运行带 TLS 的 Docker Registry：**
 
    ```
-   bash复制代码sudo docker run -d -p 5000:5000 --name registry --restart=always \
+   sudo docker run -d -p 5000:5000 --name registry --restart=always \
      -v /etc/docker/certs:/certs \
      -e "REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt" \
      -e "REGISTRY_HTTP_TLS_KEY=/certs/domain.key" \
@@ -104,7 +102,7 @@ docker pull 101.132.173.221:5000/nginx:latest
    将证书复制到 Docker 客户端的证书目录：
 
    ```
-   bash复制代码sudo mkdir -p /etc/docker/certs.d/localhost:5000
+   sudo mkdir -p /etc/docker/certs.d/localhost:5000
    sudo cp /etc/docker/certs/domain.crt /etc/docker/certs.d/localhost:5000/ca.crt
    ```
 
