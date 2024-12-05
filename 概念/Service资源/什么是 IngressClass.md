@@ -4,7 +4,7 @@
 
 ### 1. **什么是 IngressClass？**
 
-`IngressClass` 是 Kubernetes 中定义和标识特定 Ingress Controller 的一种资源类型。它通过标签（例如，`controller` 字段）将某个 `Ingress` 资源与特定的 Ingress Controller 关联，从而决定该 `Ingress` 资源由哪个 Ingress Controller 来处理。
+`IngressClass` 是 Kubernetes 中定义和标识特定 Ingress Controller 的一种资源类型。它**通过标签（例如，`controller` 字段）将某个 `Ingress` 资源与特定的 Ingress Controller 关联**，从而决定该 `Ingress` 资源由哪个 Ingress Controller 来处理。
 
 通过使用 `IngressClass`，集群管理员可以指定不同类型的 Ingress 由不同的 Ingress Controller 处理，这对于在一个集群中运行多个 Ingress Controller（例如，Nginx、Traefik、HAProxy 等）非常有用。
 

@@ -28,20 +28,20 @@ metadata:
   namespace: default
 spec:
   rules:
-    - host: myapp.example.com
+    - host: myapp.example.com    # 外部所要请求的主机名
       http:
         paths:
-          - path: /foo
-            pathType: Prefix
-            backend:
-              service:
-                name: foo-service
+          - path: /foo           # 外部请求myapp.example.com/foo
+            pathType: Prefix     # 路径类型
+            backend:             # 外部请求路径所对应的后端信息
+              service:           # 外部请求的myapp.example.com/foo被路由到服务foo-service的80端口
+                name: foo-service  
                 port:
                   number: 80
-          - path: /bar
+          - path: /bar            # 外部请求myapp.example.com/bar
             pathType: Prefix
-            backend:
-              service:
+            backend:              
+              service:            # 外部请求的路径myapp.example.com/bar被路由到服务bar-service的80端口
                 name: bar-service
                 port:
                   number: 80
