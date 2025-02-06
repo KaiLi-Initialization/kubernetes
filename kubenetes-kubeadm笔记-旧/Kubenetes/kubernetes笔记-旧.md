@@ -4483,7 +4483,7 @@ DESCRIPTION:
      Node affinity is a group of node affinity scheduling rules.
 
 FIELDS:
-   preferredDuringSchedulingIgnoredDuringExecution	<[]Object> # 优先调度到满足指定的规则的Node，相当于软限制 (倾向)
+   preferredDuringSchedulingIgnoredDuringExecution	<[]Object> # 优先调度到满足指定的规则的Node，相当于软限制 (倾向)，已在集群内的Pod若不满足条件不会被驱逐
       preference	<Object> -required-     # 一个节点选择器项，与相应的权重相关联
       
          matchExpressions	<[]Object>      # 按节点标签列出的节点选择器要求列表(推荐)
@@ -4497,7 +4497,7 @@ FIELDS:
             
       weight	<integer> -required-        # 倾向权重，在范围1-100。
 
-   requiredDuringSchedulingIgnoredDuringExecution	<Object>  # Node节点必须满足指定的所有规则才可以，相当于硬限制
+   requiredDuringSchedulingIgnoredDuringExecution	<Object>  # Node节点必须满足指定的所有规则才可以，相当于硬限制，已在集群内的Pod若不满足条件会被驱逐
       nodeSelectorTerms	<[]Object> -required-  # 节点选择列表
       
          matchExpressions	<[]Object>         # 按节点标签列出的节点选择器要求列表(推荐)
@@ -4507,7 +4507,7 @@ FIELDS:
          matchFields	<[]Object>             # 按节点字段列出的节点选择器要求列表
              key	<string> -required-            # 键
              operator	<string> -required-        # 关系符 支持In,NotIn, Exists,DoesNotExist. Gt, and Lt.
-              values	<[]string>                 # 值
+             values	<[]string>                 # 值
 
 # 注意：
 requiredDuringSchedulingIgnoredDuringExecution和preferredDuringSchedulingIgnoredDuringExecution的区别
@@ -5250,10 +5250,28 @@ kubernetes是以标签的形式来管理POD的，所以这里牵涉到一个控�
    若手动更改控制器ReplicaSet控制的三个副本的标签（labels），假如更改了其中一个后，做删除ReplicaSet控制器的操作，那么当你在删除控制器的时候，被更改标签的那个POD副本不会被删除。
    ```
 
-
 **重启策略**：`.spec.template.spec.restartPolicy`，唯一允许的取值是 `Always`，这也是默认值。
 
 
+
+#### 6.5.3有状态 VS 无状态
+
+##### 有状态
+
+有状态应用和进程允许用户通过互联网存储、记录以及返回到已建立的信息和进程。在有状态应用中，服务器会跟踪每个用户会话的状态，并维护有关用户交互和过去请求的信息。用户可以反复回到之前的操作状态，比如在网上银行查看之前的交易记录或在电子邮件中回到草稿继续编辑邮件。这些应用会在之前事务的上下文中执行操作，并且当前事务可能会受到之前事务中所发生情况的影响。因此，有状态应用每次处理用户请求时都会使用相同的服务器。
+
+##### 无状态
+
+而无状态进程或应用则不会保留用户先前的交互信息。它们没有存储或引用过去事务的信息。每次事务都像是第一次从头开始进行的。无状态应用会提供一项服务或功能，并使用内容分发网络（CDN）、Web 或打印服务器来处理这些短期请求。
+
+##### 有状态 VS 无状态：对比
+
+有状态应用是保留用户交互的当前状态信息，无状态则是将每个请求视为独立、孤立的事务，这就是二者的主要区别。此外，还有一些具体的不同之处，包括：
+
+- **可扩展性**：无状态应用通常更具可扩展性，因为每个请求都是独立的，可以由任何可用的服务器处理。有状态应用可能需要更复杂的负载平衡和会话管理机制。
+- **容错能力**：无状态应用的容错能力更强，因为即使某个服务器发生故障，也不会影响用户会话。在有状态应用中，除非采取会话复制或集群化等额外措施，否则服务器出现问题就会导致会话数据丢失。
+- **资源利用率**：无状态应用通常具有较低的资源利用率，因为不需要存储和管理会话数据。有状态应用可能需要更多的内存和处理能力来处理和维护会话信息。
+- **开发难度**：无状态应用通常更易于开发和维护，因为无需管理多个请求的状态。相对而言，有状态应用需要仔细处理会话数据和状态管理，这就增加了复杂性。
 
 #### 6.5.3 Deployment(Deploy)
 
@@ -5261,7 +5279,9 @@ kubernetes是以标签的形式来管理POD的，所以这里牵涉到一个控�
 
 **官网参考文档：**https://kubernetes.io/zh-cn/docs/concepts/workloads/controllers/deployment/
 
-为了更好的解决服务编排的问题，kubernetes在V1.2版本开始，引入了Deployment控制器。值得一提的是，这种控制器并不直接管理pod，而是通过管理ReplicaSet来简介管理Pod，即：Deployment管理ReplicaSet，ReplicaSet管理Pod。所以Deployment比ReplicaSet功能更加强大。
+Deployment 是用来管理无状态应用的工作负载 API 对象。
+
+为了更好的解决服务编排的问题，kubernetes在V1.2版本开始，引入了Deployment控制器。值得一提的是，这种控制器并不直接管理pod，而是通过管理ReplicaSet来间接管理Pod，即：Deployment管理ReplicaSet，ReplicaSet管理Pod。所以Deployment比ReplicaSet功能更加强大。
 
 ![img](pod详解-10)
 
@@ -5592,7 +5612,7 @@ deployment.apps/pc-deployment rolled back
 NAME            READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES         
 pc-deployment   4/4     4            4           74m   nginx        nginx:1.17.1   
 
-# 查看rs，发现第一个rs中有4个pod运行，后面两个版本的rs中pod为运行
+# 查看rs，发现第一个rs中有4个pod运行，后面两个版本的rs中pod未运行
 # 其实deployment之所以可是实现版本的回滚，就是通过记录下历史rs来实现的，
 # 一旦想回滚到哪个版本，只需要将当前版本pod数量降为0，然后将回滚版本的pod提升为目标数量就可以了
 [root@k8s-master01 ~]# kubectl get rs -n dev
@@ -5690,9 +5710,13 @@ pc-deployment-6c9f56fcfb-rf84v   1/1     Running   0          37s
 deployment.apps "pc-deployment" deleted
 ```
 
-### 6.6 StatefulSet
+#### 6.6 StatefulSet
 
-StatefulSet 是用来管理有状态应用的工作负载 API 对象。
+StatefulSet 是用来管理有状态应用的工作负载 API 对象。StatefulSet 用来管理某 Pod 集合的部署和扩缩， 并为这些 Pod **提供持久存储和持久标识符**。
+
+和 [Deployment](https://kubernetes.io/zh-cn/docs/concepts/workloads/controllers/deployment/) 类似， StatefulSet 管理基于相同容器规约的一组 Pod。但和 Deployment 不同的是， **StatefulSet 为它们的每个 Pod 维护了一个有粘性的 ID。这些 Pod 是基于相同的规约来创建的， 但是不能相互替换：无论怎么调度，每个 Pod 都有一个永久不变的 ID。**
+
+
 
 StatefulSet 控制器特点：
 
@@ -5912,6 +5936,93 @@ updateStrategy:
         maxUnavailable: 3  # 指定一次滚动更新的POD数量，此数字必须小于replica，默认值是1。
                             #maxUnavailable 字段处于 Alpha 阶段，仅当 API 服务器启用了                                                    MaxUnavailableStatefulSet 特性门控时才起作用。
 ```
+
+
+
+#### Deployment 和 StatefulSet 的异同
+
+`Deployment` 和 `StatefulSet` 都是 Kubernetes 中用于管理 Pod 的控制器，但它们在管理应用时有不同的设计目标和使用场景，特别是在处理 **有状态应用** 和 **无状态应用** 时的行为有所不同。
+
+##### **主要区别总结：**
+
+| 特性             | **Deployment**                                            | **StatefulSet**                                              |
+| ---------------- | --------------------------------------------------------- | ------------------------------------------------------------ |
+| **用途**         | 主要用于无状态应用的部署和管理                            | 主要用于有状态应用的部署和管理                               |
+| **Pod 标识符**   | Pod 没有稳定的标识符，Pod 会被动态调度                    | 每个 Pod 有一个稳定且唯一的标识符（如 `myapp-0`、`myapp-1`） |
+| **存储（卷）**   | Pod 通常不会有持久化存储，存储会在 Pod 被销毁时丢失       | 每个 Pod 具有持久化存储，Pod 可以与特定的 `PersistentVolume` 绑定 |
+| **Pod 启动顺序** | Pods 不保证启动顺序，所有 Pods 可以并行启动               | Pods 按顺序启动（`myapp-0` 会先启动，然后是 `myapp-1`，依此类推） |
+| **网络标识符**   | Pod 没有稳定的 DNS 名称，Pod 的网络标识符不固定           | 每个 Pod 都有稳定的 DNS 名称，如 `myapp-0.myapp.svc.cluster.local` |
+| **滚动更新**     | 支持滚动更新，Pod 会逐步被替换                            | 也支持滚动更新，但有更严格的顺序控制，确保 Pod 按顺序更新    |
+| **副本数量**     | 副本数可以灵活调整，Pod 可以随时扩容或缩容                | 副本数固定且严格，Pod 的标识符是唯一且按顺序生成             |
+| **适用场景**     | 适用于无状态服务，服务可以无序扩展并且不依赖于 Pod 的状态 | 适用于有状态服务，如数据库、缓存等，确保每个 Pod 都有自己的状态 |
+| **删除行为**     | 删除 Pod 时不会保留数据，Pod 重新创建时会是全新的         | 删除 Pod 时，数据依然保留在持久化存储中，Pod 重新创建时会恢复之前的状态 |
+
+------
+
+**详细对比：**
+
+1. **Pod 标识符和顺序性**
+
+- Deployment
+  - `Deployment` 中的 Pod 是无状态的，每个 Pod 都没有固定的标识符，Pod 会被动态调度和管理。
+  - Pods 会按需启动，容器的副本数也会根据负载动态调整。
+  - Pod 的启动和删除没有固定顺序，因此对于一些不依赖于顺序的应用（如 Web 服务）非常合适。
+- StatefulSet
+  - 每个 Pod 在 `StatefulSet` 中都会有一个稳定的标识符，像 `myapp-0`、`myapp-1` 等，确保每个 Pod 都能保持唯一性和顺序。
+  - Pod 会按顺序启动和终止（`myapp-0` 会首先启动，然后是 `myapp-1`，依此类推），对于需要特定顺序启动的有状态应用非常有用。
+
+2. **持久化存储**
+
+- Deployment
+  - `Deployment` 中的 Pods 通常没有持久化存储（例如，`Deployment` 中的容器会使用临时存储，当 Pod 被删除时，数据会丢失）。
+  - 如果需要持久化存储，通常需要外部解决方案（如使用 `PersistentVolume` 和 `PersistentVolumeClaim` 来挂载存储）。
+- StatefulSet
+  - `StatefulSet` 中每个 Pod 都会自动创建一个持久化卷（`PersistentVolume`），确保即使 Pod 被删除和重新创建，它们依然能够访问到持久化的数据。
+  - 每个 Pod 绑定到一个特定的持久化卷，这使得它们在删除后可以恢复之前的状态。
+
+3. **网络标识符**
+
+- Deployment
+  - 在 `Deployment` 中，Pod 的 DNS 名称是临时的，每次 Pod 被重新调度或重新创建时，它的 DNS 名称都会发生变化。
+- StatefulSet
+  - 在 `StatefulSet` 中，每个 Pod 都有一个稳定的 DNS 名称，格式为 `pod-name.service-name`，如 `myapp-0.myapp.svc.cluster.local`。
+  - 这对于有状态服务（如数据库、缓存服务）来说非常重要，因为它们通常需要通过稳定的网络标识符来访问和维护自己的状态。
+
+4. **滚动更新与回滚**
+
+- Deployment
+  - 支持滚动更新功能，Pod 会逐个替换，保持服务的持续可用性。
+  - 在滚动更新过程中，如果某个新版本的 Pod 出现问题，`Deployment` 支持回滚到旧版本，确保应用的可靠性。
+- StatefulSet
+  - 也支持滚动更新，但与 `Deployment` 不同，`StatefulSet` 会按顺序逐个更新 Pod，先停止一个 Pod，再启动一个新 Pod。这保证了在有状态应用中 Pod 顺序的稳定性。
+  - `StatefulSet` 支持回滚功能，但回滚时也会严格按顺序恢复 Pod。
+
+5. **删除 Pod**
+
+- Deployment
+  - 删除 Pod 时，Pod 会被立刻销毁，数据丢失（如果没有外部存储）。
+  - 如果应用是无状态的，Pod 被销毁时不会有影响，新的 Pod 会被自动创建并替代它。
+- StatefulSet
+  - 删除 Pod 时，如果 Pod 关联了持久化存储，数据不会丢失（存储会保留）。
+  - `StatefulSet` 会按顺序删除 Pod，确保不会影响应用的可用性。
+
+**什么时候选择 `Deployment` 和 `StatefulSet`**
+
+- **选择 `Deployment`**：
+  - 如果应用是无状态的，Pod 之间没有依赖关系（例如：Web 应用、API 服务等）。
+  - 如果你希望 Pod 数量能够灵活扩展，并且不需要持久化存储。
+  - 如果你的应用可以容忍 Pod 的快速重启、删除和重新创建。
+- **选择 `StatefulSet`**：
+  - 如果应用是有状态的，Pod 之间有状态依赖，且需要持久化数据（例如：数据库、消息队列、缓存等）。
+  - 如果应用需要保证每个 Pod 的稳定身份、网络标识符，并且 Pod 必须按顺序启动和终止。
+  - 如果应用需要在 Pod 删除时保留数据，并且数据与特定 Pod 绑定。
+
+**总结：**
+
+- `Deployment` 适用于无状态应用，能够实现灵活扩展、滚动更新和回滚。
+- `StatefulSet` 适用于有状态应用，能够保证 Pod 的稳定标识符、顺序启动、持久化存储等特性。
+
+你是否有具体的部署需求，想了解更多有关选择控制器的细节？
 
 
 
@@ -6258,11 +6369,13 @@ metadata: # 元数据
   labels: #标签
     controller: job
 spec: # 详情描述
+
   completions: 1 # 指定job需要成功运行Pods的次数。默认值: 1
   parallelism: 1 # 指定job在任一时刻应该并发运行Pods的数量。默认值: 1
   activeDeadlineSeconds: 30 # 指定job可运行的时间期限，超过时间还未结束，系统将会尝试进行终止。
   backoffLimit: 6 # 指定job失败后进行重试的次数。默认是6
   manualSelector: true # 是否可以使用selector选择器选择pod，默认是false
+  
   selector: # 选择器，通过它指定该控制器管理哪些pod
     matchLabels:      # Labels匹配规则
       app: counter-pod
