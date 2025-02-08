@@ -643,13 +643,9 @@ spec:
 
 - 选择 `OrderedReady`
 
-  ：
-
   - 当你的应用依赖于 Pod 启动顺序时（例如：分布式数据库、消息队列等），`OrderedReady` 确保 Pod 按顺序启动和删除，以避免服务间的依赖性问题。
 
 - 选择 `Parallel`
-
-  ：
 
   - 当你的应用没有严格的顺序要求时，或者你希望加速 Pod 启动和停止的速度，可以使用 `Parallel` 模式。
 
@@ -660,7 +656,7 @@ spec:
 
 根据你的应用特性，选择合适的 `podManagementPolicy` 可以帮助你更好地控制 Pod 的生命周期和管理。
 
-### 更新策略（ updateStrategy）
+### 更新策略（ updateStrategy）--需测试
 
 statefulSet的更新策略有两种
 
@@ -719,9 +715,9 @@ updateStrategy:
       type: OnDelete
 ```
 
+### **StatefulSet 更新原理**
 
-
-### 滚动更新（RollingUpdate）
+#### 滚动更新（RollingUpdate）
 
 ```shell
 [root@centos-master ~]# kubectl explain statefulSet.spec.updateStrategy.rollingUpdate
@@ -771,6 +767,370 @@ updateStrategy:
         maxUnavailable: 3  # 指定一次滚动更新的POD数量，此数字必须小于replica，默认值是1。
                             #maxUnavailable 字段处于 Alpha 阶段，仅当 API 服务器启用了                                                    MaxUnavailableStatefulSet 特性门控时才起作用。
 ```
+
+在 Kubernetes 中，`StatefulSet` 更新和回滚机制与 `Deployment` 类似，但它有一些特定的特性，因为它涉及到有状态应用，并且必须确保稳定的标识、顺序和持久化存储。下面将详细解释 `StatefulSet` 更新和回滚的原理。
+
+
+
+`StatefulSet` 更新的核心目标是保持 Pod 的顺序和稳定性，并且更新过程中尽量不影响有状态应用的运行。更新过程遵循以下步骤：
+
+#### 1. **更新触发**
+
+- 当你更新 `StatefulSet` 的模板时（例如修改容器镜像、环境变量等），Kubernetes 会自动开始滚动更新。
+- `StatefulSet` 会按顺序逐个更新 Pod，而不会一次性更新所有 Pod，保证每次只有一个 Pod 处于更新或不可用状态。
+
+#### 2. **Pod 更新顺序**
+
+- `StatefulSet` 的更新顺序是严格按照 Pod 的索引顺序进行的。
+
+- 假设 
+
+  ```
+  StatefulSet
+  ```
+
+   包含 3 个 Pod，分别是 
+
+  ```
+  my-statefulset-0
+  ```
+
+  ```
+  my-statefulset-1
+  ```
+
+  ```
+  my-statefulset-2
+  ```
+
+  更新顺序是：
+
+  1. 首先更新 `my-statefulset-0`
+  2. 然后更新 `my-statefulset-1`
+  3. 最后更新 `my-statefulset-2`
+
+- 每个 Pod 更新时，Kubernetes 会执行以下步骤：
+
+  1. **删除当前 Pod**：首先删除当前需要更新的 Pod（如 `my-statefulset-0`）。
+  2. **创建新 Pod**：然后创建一个新的 Pod，使用更新后的模板（例如新的镜像版本）。
+  3. **等待 Pod 就绪**：新 Pod 创建后，Kubernetes 会等待该 Pod 完全就绪（包括容器启动、健康检查等）之后，再继续更新下一个 Pod。
+
+#### 3. **保证最小可用 Pod 数量**
+
+- 更新过程中，`StatefulSet` 会确保至少有一个 Pod 是可用的。虽然 `StatefulSet` 更新会一个 Pod 一个 Pod 地进行，但 Kubernetes 会通过滚动更新的方式控制每次只丢失一个 Pod。
+
+- 你可以通过 
+
+  ```
+  spec.updateStrategy
+  ```
+
+   中的配置来控制更新行为：
+
+  - **RollingUpdate**（默认策略）：控制每次更新的最大不可用 Pod 数量和最大创建的新 Pod 数量。
+  - **OnDelete**：更新只会在 Pod 被删除时发生。
+
+#### **StatefulSet 回滚原理**
+
+回滚是指将 `StatefulSet` 恢复到先前的版本。与 `Deployment` 的回滚不同，`StatefulSet` 的回滚必须小心处理，因为它涉及到有状态数据和 Pod 的顺序。
+
+##### 1. **回滚触发**
+
+- 回滚通常是由于某些更新失败或新版本导致的问题。用户可以通过 `kubectl rollout undo` 命令或手动修改 `StatefulSet` 的配置来触发回滚。
+- `StatefulSet` 会回滚到上一个成功的修订版本，回滚时会将 Pod 的配置恢复到更新前的状态。
+
+##### 2. **回滚操作**
+
+- 在回滚时，`StatefulSet` 会按与更新时相反的顺序逐个恢复 Pod。
+
+- 假设有 3 个 Pod
+
+  ```
+  my-statefulset-0
+  ```
+
+  ```
+  my-statefulset-1
+  ```
+
+  ```
+  my-statefulset-2
+  ```
+
+  回滚时的顺序是：
+
+  1. 首先恢复 `my-statefulset-2` 到旧版本。
+  2. 然后恢复 `my-statefulset-1` 到旧版本。
+  3. 最后恢复 `my-statefulset-0` 到旧版本。
+
+- 回滚过程中，Kubernetes 会确保 Pod 的顺序和稳定性。例如，如果 `my-statefulset-2` 正在进行更新，回滚后 Kubernetes 会创建旧版本的 `my-statefulset-2`。
+
+##### 3. **回滚的控制**
+
+- 与更新类似，回滚过程中也会根据 `spec.updateStrategy` 中的配置控制每次回滚的 Pod 数量。
+- `StatefulSet` 会保持 Pod 的稳定存储和顺序，回滚时不会丢失任何持久化数据，因为每个 Pod 都有对应的 Persistent Volume Claim（PVC），这些 PVC 不会因为 Pod 的删除而丢失。
+
+##### 4. **与 `controller-revision-hash` 的关联**
+
+- 每次 `StatefulSet` 更新时，Kubernetes 会生成一个新的 `controller-revision-hash`，并为每个 Pod 添加相应的标签（如 `controller-revision-hash: <hash_value>`）。
+- 回滚操作时，`StatefulSet` 会通过这个标签恢复到之前的版本，确保 Pod 与持久化存储和 `StatefulSet` 的修订版本关联。
+
+#### **StatefulSet 更新与回滚的关键特点**
+
+| 特性               | **更新过程**                                   | **回滚过程**                                      |
+| ------------------ | ---------------------------------------------- | ------------------------------------------------- |
+| **更新顺序**       | 按照 Pod 的索引顺序（从 `0` 到 `n-1`）更新     | 按照 Pod 的索引顺序（从 `n-1` 到 `0`）恢复        |
+| **稳定性**         | 保证每个 Pod 名称、持久存储和网络标识稳定      | 恢复到先前版本的配置，保持 Pod 名称、持久存储稳定 |
+| **Pod 删除与创建** | 删除旧 Pod，创建新 Pod                         | 删除新 Pod，恢复旧 Pod                            |
+| **回滚触发方式**   | 通过手动修改或错误更新触发                     | 通过 `kubectl rollout undo` 或修改配置触发        |
+| **持久存储管理**   | 每个 Pod 与一个 Persistent Volume Claim（PVC） | PVC 会保持不变，确保数据不丢失                    |
+
+##### **总结**
+
+- **更新**：`StatefulSet` 会严格按顺序更新每个 Pod，确保有状态服务的稳定性和一致性。每个 Pod 会被逐个删除并用新版本替换，确保更新过程中的最小服务中断。
+- **回滚**：`StatefulSet` 支持回滚到先前的修订版本，回滚时会按与更新相反的顺序逐个恢复 Pod，并且保持持久存储不丢失。
+- `StatefulSet` 的更新和回滚与无状态的 `Deployment` 不同，它需要特别考虑 Pod 的顺序性、持久化存储和网络标识等因素。
+
+### 标签
+
+```shell
+root@ubuntu-master:/home/ubuntu# kubectl get pod --show-labels
+NAME          READY   STATUS    RESTARTS   AGE    LABELS
+nginx-sts-0   1/1     Running   0          151m   app=nginx,apps.kubernetes.io/pod-index=0,controller-revision-hash=nginx-sts-7d67fbc7d4,statefulset.kubernetes.io/pod-name=nginx-sts-0
+nginx-sts-1   1/1     Running   0          151m   app=nginx,apps.kubernetes.io/pod-index=1,controller-revision-hash=nginx-sts-7d67fbc7d4,statefulset.kubernetes.io/pod-name=nginx-sts-1
+nginx-sts-2   1/1     Running   0          150m   app=nginx,apps.kubernetes.io/pod-index=2,controller-revision-hash=nginx-sts-7d67fbc7d4,statefulset.kubernetes.io/pod-name=nginx-sts-2
+```
+
+作用
+
+- apps.kubernetes.io/pod-index：标记pod在 `StatefulSet` 中的顺序或位置，与Pod名字的序号相对应
+- controller-revision-hash：用于跟踪和标识某个特定修订版本的标签
+- statefulset.kubernetes.io/pod-name：该标签值设置为 Pod 名称。这个标签包含了与 `StatefulSet` 相关联的每个 Pod 的名称，它标识了这个 Pod 在 `StatefulSet` 中的唯一身份
+
+#### apps.kubernetes.io/pod-index标签
+
+`apps.kubernetes.io/pod-index` 是 Kubernetes 中 `StatefulSet` 中的一个标签，它用于标识每个 Pod 在 `StatefulSet` 中的索引位置。该标签的值是一个整数，表示 Pod 在 `StatefulSet` 中的顺序或位置（例如 `0`、`1`、`2` 等）。这个标签通常由 Kubernetes 自动为每个 Pod 添加，尤其是对于 `StatefulSet` 中的 Pod，Pod 的索引和顺序非常重要。
+
+##### **作用和使用场景**
+
+1. **标识 Pod 的顺序**：
+   - `apps.kubernetes.io/pod-index` 标签帮助 Kubernetes 区分同一 `StatefulSet` 中的不同 Pod。每个 Pod 在 `StatefulSet` 中都有唯一的顺序编号，从 `0` 开始递增。
+   - 例如，假设有一个 `StatefulSet` 管理 3 个 Pod，它们的名称分别为 `my-statefulset-0`、`my-statefulset-1` 和 `my-statefulset-2`，这些 Pod 的 `apps.kubernetes.io/pod-index` 标签将分别是 `0`、`1` 和 `2`。
+2. **Pod 顺序和稳定性**：
+   - `StatefulSet` 中的 Pod 按顺序命名和分配。这种顺序在有状态应用中尤为重要，因为每个 Pod 可能都需要访问持久化存储或需要在网络中有稳定的身份。
+   - `apps.kubernetes.io/pod-index` 标签使得其他系统可以轻松了解 Pod 的顺序，例如在部署、调度、故障恢复等方面，某些组件可能依赖于这种顺序。
+3. **有状态应用的支持**：
+   - 在有状态应用（如数据库、消息队列等）中，每个 Pod 的顺序和稳定性至关重要。例如，某些数据库实例可能需要知道它们在集群中的位置，从而决定如何相互通信。`apps.kubernetes.io/pod-index` 标签可以帮助实现这种顺序管理。
+
+##### **标签示例**
+
+假设你有一个名为 `my-statefulset` 的 `StatefulSet`，包含 3 个 Pod：`my-statefulset-0`、`my-statefulset-1` 和 `my-statefulset-2`。每个 Pod 都会带有 `apps.kubernetes.io/pod-index` 标签，分别表示它们在 `StatefulSet` 中的索引位置：
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-statefulset-0
+  labels:
+    app: my-app
+    apps.kubernetes.io/pod-index: "0"  # Pod 索引为 0
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-statefulset-1
+  labels:
+    app: my-app
+    apps.kubernetes.io/pod-index: "1"  # Pod 索引为 1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-statefulset-2
+  labels:
+    app: my-app
+    apps.kubernetes.io/pod-index: "2"  # Pod 索引为 2
+```
+
+##### **如何使用 `apps.kubernetes.io/pod-index` 标签**
+
+- **排序和筛选**： `apps.kubernetes.io/pod-index` 标签可以帮助你根据 Pod 的索引顺序进行排序或筛选。在某些情况下，可能需要根据 Pod 的索引来决定处理逻辑（例如，负载均衡、初始化顺序等）。
+- **与持久化存储关联**： 在 `StatefulSet` 中，每个 Pod 通常会有一个与之关联的持久卷（Persistent Volume）。`apps.kubernetes.io/pod-index` 标签可以帮助你确保持久存储与对应的 Pod 紧密绑定，尤其在故障恢复时，它确保每个 Pod 与正确的存储卷关联。
+- **扩展场景**： 你可以在应用程序中使用该标签来执行特定的初始化逻辑。比如，在集群中，某些 Pod 可能会在启动时需要先后顺序处理初始化任务（例如，在 `my-statefulset-0` 启动时初始化数据库，而其他 Pod 在启动时连接到它）。
+
+##### **小结**
+
+- `apps.kubernetes.io/pod-index` 标签是 Kubernetes 为 `StatefulSet` 中的每个 Pod 自动分配的一个标签，它表示该 Pod 在 `StatefulSet` 中的顺序位置（即 Pod 的索引）。
+- 这个标签对于有状态应用非常重要，因为它帮助区分每个 Pod，并确保它们在启动、更新、回滚等操作中遵循正确的顺序。
+- 在多副本有状态应用中，`apps.kubernetes.io/pod-index` 标签帮助确保 Pod 之间的顺序和依赖关系不被破坏。
+
+#### controller-revision-hash标签
+
+`controller-revision-hash` 标签是 Kubernetes 中 `StatefulSet` 控制器用于跟踪和标识某个特定修订版本的标签。这个标签主要出现在 `StatefulSet` 中的 Pod 上，它的作用是帮助 Kubernetes 区分和管理不同的 Pod 版本。
+
+##### 具体说明：
+
+- **生成条件**：每当你更新 `StatefulSet` 的 Pod 模板（如镜像、环境变量等）时，Kubernetes 会创建一个新的修订版本，并为此修订版本分配一个新的哈希值，作为 `controller-revision-hash` 标签的值。
+- **标签的作用**：这个标签允许 Kubernetes 知道每个 Pod 属于哪个修订版本。例如，更新镜像后，`StatefulSet` 会创建新的 Pods，并将这些新 Pods 标记为新的修订版本。旧版本的 Pods 仍会保留旧的 `controller-revision-hash`，直到它们被逐渐替换。
+
+##### 用法场景：
+
+1. **滚动更新**：每次更新 `StatefulSet` 时，新的 Pods 会带有新的 `controller-revision-hash` 标签。Kubernetes 会逐步用新版本的 Pods 替代旧版本，而不会一次性替换，保证服务的稳定性和可用性。
+2. **回滚**：如果更新出现问题，Kubernetes 可以通过 `controller-revision-hash` 标签将 `StatefulSet` 恢复到某个旧版本的 Pod 配置。
+
+##### 示例：
+
+假设我们有一个 `StatefulSet`，其中有 3 个 Pod。我们初次创建时，所有 Pod 的 `controller-revision-hash` 标签可能是这样的：
+
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: my-statefulset
+spec:
+  serviceName: "my-service"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: my-container
+        image: my-image:v1  # 初始版本
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-statefulset-0
+  labels:
+    app: my-app
+    controller-revision-hash: "v1-abc123"  # 初始版本的哈希
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-statefulset-1
+  labels:
+    app: my-app
+    controller-revision-hash: "v1-abc123"  # 初始版本的哈希
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-statefulset-2
+  labels:
+    app: my-app
+    controller-revision-hash: "v1-abc123"  # 初始版本的哈希
+```
+
+当你更新 `StatefulSet` 的镜像版本时，新的 `controller-revision-hash` 会被生成，并且新的 Pods 会带上新的标签：
+
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: my-statefulset
+spec:
+  serviceName: "my-service"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: my-container
+        image: my-image:v2  # 更新后的版本
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-statefulset-0
+  labels:
+    app: my-app
+    controller-revision-hash: "v2-def456"  # 更新后的哈希
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-statefulset-1
+  labels:
+    app: my-app
+    controller-revision-hash: "v2-def456"  # 更新后的哈希
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-statefulset-2
+  labels:
+    app: my-app
+    controller-revision-hash: "v2-def456"  # 更新后的哈希
+```
+
+##### 总结：
+
+- `controller-revision-hash` 标签是 `StatefulSet` 控制器用来标识不同修订版本的关键标识符。
+- 它在 Pod 更新时自动生成，确保了 Pod 的版本管理、滚动更新和回滚操作。
+
+
+
+#### statefulset.kubernetes.io/pod-name标签
+
+`statefulset.kubernetes.io/pod-name` 是 Kubernetes 中 `StatefulSet` 控制器为每个 Pod 自动添加的标签。这个标签包含了与 `StatefulSet` 相关联的每个 Pod 的名称，它标识了这个 Pod 在 `StatefulSet` 中的唯一身份。
+
+##### 作用：
+
+- **Pod 标识**：该标签的值是 Pod 的名称。因为在 `StatefulSet` 中，Pod 是按照稳定的、顺序的名字来命名的（例如 `my-statefulset-0`, `my-statefulset-1`），因此通过 `statefulset.kubernetes.io/pod-name` 标签，其他组件或用户可以轻松识别和引用与该 Pod 相关的资源。
+- **与 `StatefulSet` 关联**：这个标签帮助 Kubernetes 确保该 Pod 与它所属于的 `StatefulSet` 资源保持关联，尤其在涉及 Pod 的更新、管理和故障恢复时。
+
+##### 例子：
+
+假设你有一个名为 `my-statefulset` 的 `StatefulSet`，它包含 3 个 Pod，分别命名为 `my-statefulset-0`、`my-statefulset-1` 和 `my-statefulset-2`。每个 Pod 都会带有 `statefulset.kubernetes.io/pod-name` 标签，指示它属于哪个 `StatefulSet`。
+
+###### 示例 Pod 配置：
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-statefulset-0
+  labels:
+    app: my-app
+    statefulset.kubernetes.io/pod-name: "my-statefulset-0"  # 标识 Pod 名称
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-statefulset-1
+  labels:
+    app: my-app
+    statefulset.kubernetes.io/pod-name: "my-statefulset-1"  # 标识 Pod 名称
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-statefulset-2
+  labels:
+    app: my-app
+    statefulset.kubernetes.io/pod-name: "my-statefulset-2"  # 标识 Pod 名称
+```
+
+##### 为什么这个标签重要？
+
+1. **稳定标识**：`StatefulSet` 的每个 Pod 都有一个稳定的名称（如 `my-statefulset-0`），该标签确保了 Pod 的标识不会丢失或改变，即使 Pod 被调度到不同的节点或发生故障重新调度时。
+2. **资源关联**：在 `StatefulSet` 中，Pod 和持久化存储（如 PersistentVolume）是强关联的。`statefulset.kubernetes.io/pod-name` 标签帮助管理这种关联，例如在某些存储资源的生命周期管理中，可以通过该标签将存储和 Pod 关联。
+3. **滚动更新与管理**：在滚动更新的过程中，Kubernetes 会基于 `statefulset.kubernetes.io/pod-name` 来逐一管理 Pod 的更新顺序，确保 Pod 的更新按顺序进行，并且每个 Pod 在升级过程中都保持其稳定身份。
+
+##### 小结：
+
+`statefulset.kubernetes.io/pod-name` 是 `StatefulSet` 中每个 Pod 都会拥有的一个标签，用来表示和标识该 Pod 在 `StatefulSet` 中的名称。这是实现有状态应用（如数据库）的稳定性、更新顺序和存储一致性的关键因素。
 
 
 

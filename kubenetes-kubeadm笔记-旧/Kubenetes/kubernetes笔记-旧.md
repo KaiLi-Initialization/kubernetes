@@ -6277,7 +6277,7 @@ DaemonSet控制器的特点：
 apiVersion: apps/v1 # 版本号
 kind: DaemonSet # 类型       
 metadata: # 元数据
-  name: # rs名称 
+  name: # ds名称 
   namespace: # 所属命名空间 
   labels: #标签
     controller: daemonset
