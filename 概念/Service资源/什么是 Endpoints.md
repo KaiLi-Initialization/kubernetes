@@ -35,7 +35,7 @@
 #### 示例：
 
 ```
-yaml复制代码apiVersion: v1
+apiVersion: v1
 kind: Endpoints
 metadata:
   name: my-service

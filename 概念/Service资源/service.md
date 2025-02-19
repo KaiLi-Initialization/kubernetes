@@ -174,35 +174,6 @@ NodePort 服务访问限制
 
 
 
-[`LoadBalancer`](https://kubernetes.io/zh-cn/docs/concepts/services-networking/service/#loadbalancer)类型
-
-使用第三方云平台的负载均衡器向外部公开 Service。
-
-[`ExternalName`](https://kubernetes.io/zh-cn/docs/concepts/services-networking/service/#externalname)类型
-
-类型为 ExternalName 的 Service 将 Service 映射到 DNS 名称，而不是典型的选择算符， 例如 `my-service` 或者 `cassandra`。你可以使用 `spec.externalName` 参数指定这些服务。
-
-例如，以下 Service 定义将 `prod` 名字空间中的 `my-service` 服务映射到 `my.database.example.com`：
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: my-service
-  namespace: prod
-spec:
-  type: ExternalName
-  externalName: my.database.example.com
-```
-
-如果你想要将服务直接映射到某特定 IP 地址，请考虑使用[无头服务](https://kubernetes.io/zh-cn/docs/concepts/services-networking/service/#headless-services)。
-
-
-
-服务发现
-
-对于在集群内运行的客户端，Kubernetes 支持两种主要的服务发现模式：环境变量和 DNS。
-
 
 
 流量策略

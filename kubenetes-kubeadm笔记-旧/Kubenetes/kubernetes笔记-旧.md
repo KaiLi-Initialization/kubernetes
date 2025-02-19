@@ -4914,6 +4914,12 @@ Node被设置上污点之后就和Pod之间存在了一种相斥的关系，进�
 # 设置污点
 kubectl taint nodes node1 key1=value1:NoSchedule
 
+# 查询所有节点污点
+kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints"
+
+# 查询特定节点污点
+kubectl describe node node-1 | grep Taints
+
 # 去除污点
 kubectl taint nodes node1 key1=value1:NoSchedule-
 
@@ -4931,6 +4937,13 @@ kubectl taint nodes node1 key-
 ```shell
 # 为node1设置污点(PreferNoSchedule)
 [root@k8s-master01 ~]# kubectl taint nodes node1 tag=heima:PreferNoSchedule
+
+#查看所有节点的污点
+
+kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints"
+
+# 查看特定节点的污点
+kubectl describe node node-1 | grep Taints
 
 # 创建pod1
 [root@k8s-master01 ~]# kubectl run taint1 --image=nginx:1.17.1 -n dev
@@ -6482,6 +6495,8 @@ job.batch "pc-job" deleted
 ### 6.10 CronJob(CJ)
 
 **华为云参考文档：**https://support.huaweicloud.com/basics-cce/kubernetes_0016.html
+
+**CronJob示例：**https://kubernetes.io/zh-cn/docs/tasks/job/
 
 CronJob控制器以 Job控制器资源为其管控对象，并借助它管理pod资源对象，Job控制器定义的作业任务在其控制器资源创建之后便会立即执行，但CronJob可以以类似于Linux操作系统的周期性任务作业计划的方式控制其运行**时间点**及**重复运行**的方式。也就是说，**CronJob可以在特定的时间点(反复的)去运行job任务**。
 
