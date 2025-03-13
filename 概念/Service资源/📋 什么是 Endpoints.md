@@ -65,7 +65,7 @@ Kubernetes 中的 `Service` 通过 `Endpoints` 资源来与后端的 Pod 进行�
 假设你创建了一个简单的 Kubernetes 服务：
 
 ```
-yaml复制代码apiVersion: v1
+apiVersion: v1
 kind: Service
 metadata:
   name: my-service
@@ -87,10 +87,6 @@ spec:
 有时，你可能需要手动管理 `Endpoints`，例如，在某些特殊的配置或外部服务场景下。可以通过 `kubectl` 命令直接创建、更新或删除 `Endpoints`。
 
 ```
-bash
-
-
-复制代码
 kubectl expose pod my-pod --name=my-service --port=8080 --target-port=80 --type=ClusterIP
 ```
 
@@ -120,7 +116,7 @@ Kubernetes 的 DNS 系统也会依赖于 `Endpoints` 资源。每当服务创建
 你可以通过以下命令来查看 Kubernetes 中的 Endpoints：
 
 ```
-bash复制代码kubectl get endpoints
+kubectl get endpoints
 kubectl describe endpoints my-service
 ```
 

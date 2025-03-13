@@ -42,17 +42,17 @@ metadata:
   name: allow-specific-ingress
   namespace: default
 spec:
-  podSelector:
+  podSelector:        # 策略作用于哪些Pod
     matchLabels:
       app: my-app
-  policyTypes:
+  policyTypes:        # 策略的类型
   - Ingress
-  ingress:
+  ingress:            # 定义流入策略
   - from:
-    - podSelector:
+    - podSelector:    # 允许哪些外部Pod访问
         matchLabels:
           app: allowed-app
-    ports:
+    ports:            # 允许外部Pod通过什么端口和协议进行访问
     - protocol: TCP
       port: 80
 ```

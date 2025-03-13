@@ -7564,11 +7564,25 @@ service "service-clusterip" deleted
   
   ```
 
+  
+
+  **查看 DNS 名称解析**
+
   用nslookup（需要部署DNS服务才能使用）工具对Headless Service名称尝试域名解析，将会看到DNS系统返回的全部Endpoint的IP地址，例如：
 
-  ```shell
-  
+  如果你想检查某个服务的 DNS 解析是否正确，可以通过查询 DNS 记录来查看它指向哪些 Pod：
+
   ```
+  nslookup <service-name>.<namespace>.svc.cluster.local
+  ```
+
+  例如，如果 `my-headless-service` 在 `default` 命名空间下：
+
+  ```
+  nslookup my-headless-service.default.svc.cluster.local
+  ```
+
+  这将返回所有与服务对应的 Pod 的 IP 地址。对于 Headless Service，它不会返回虚拟 IP，而是返回与每个 Pod 相关的实际 IP 地址。
 
   当客户端通过DNS服务名“nginx”（或其FQDN全限定域名**“service-headliness.<namespace>.svc.cluster.local”**）和服务端口号访问该Headless服务（URL=nginx：80）时，将得到Service后端Endpoint列表**“`10.244.1.94:80,10.244.1.95:80,10.244.2.98:80`”**，然后由客户端程序自行决定如何操作，例如通过轮询机制访问各个Endpoint。
 
