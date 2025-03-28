@@ -248,11 +248,11 @@ Kubernetes 支持两种卷模式（`volumeModes`）：`Filesystem（文件系统
 
 **永久卷（Persistent Volume, PV）** 的**回收策略（Reclaim Policy）**回收策略决定了当 PVC 被删除后，K8s 如何处理 PV。
 
-| **策略**  | **描述**                                                     | **适用场景**                     |
-| --------- | ------------------------------------------------------------ | -------------------------------- |
-| `Retain`  | **保留数据**，需手动清理和回收 PV。删除 PVC 后，PV 状态会变为 `Released`（表示已解除绑定，但数据未清理） | 数据需长期保存，如数据库、日志。 |
-| `Delete`  | 自动删除 PV 和存储后端资源（**适用于动态供应**）。           | 临时数据，动态创建和删除。       |
-| `Recycle` | **清理数据**（已弃用），PV 重新进入 Available。              | 早期测试使用，建议手动回收 PV。  |
+| **策略**            | **描述**                                                     | **适用场景**                     |
+| ------------------- | ------------------------------------------------------------ | -------------------------------- |
+| `Retain（保留）`    | **保留数据**，需手动清理和回收 PV。删除 PVC 后，PV 状态会变为 `Released`（表示已解除绑定，但数据未清理） | 数据需长期保存，如数据库、日志。 |
+| `Delete`            | 自动删除 PV 和存储后端资源（**适用于动态供应**）。           | 临时数据，动态创建和删除。       |
+| `Recycle（再利用）` | **清理数据**（已弃用），PV 重新进入 Available。              | 早期测试使用，建议手动回收 PV。  |
 
 **注意**：Recycle 策略在 Kubernetes **1.20 版本已废弃**，并在 **1.25 版本移除**，推荐使用 **Dynamic Provisioning** 进行动态存储管理。
 
@@ -308,13 +308,13 @@ kubectl patch pv example-pv -p '{"spec":{"persistentVolumeReclaimPolicy":"Delete
 
 ### 📌 PV生命周期的状态
 
-| **阶段**      | **描述**                                            |
-| ------------- | --------------------------------------------------- |
-| **Available** | PV **可用状态**，等待与 PVC 绑定，尚未被使用。      |
-| **Pending**   | PVC 提交后，**等待合适的 PV** 进行绑定。            |
-| **Bound**     | PV **已成功绑定** 到 PVC，Pod 可以使用该卷。        |
-| **Released**  | PVC 被删除，但 PV **未被回收**，数据仍然保留。      |
-| **Failed**    | PV 自动回收**失败**，需手动介入（如存储回收异常）。 |
+| **阶段**                          | **描述**                                            |
+| --------------------------------- | --------------------------------------------------- |
+| **Available（可用）**             | PV **可用状态**，等待与 PVC 绑定，尚未被使用。      |
+| **Pending（待定）** **PVC的状态** | PVC 提交后，**等待合适的 PV** 进行绑定。            |
+| **Bound（绑定）**                 | PV **已成功绑定** 到 PVC，Pod 可以使用该卷。        |
+| **Released（释放）**              | PVC 被删除，但 PV **未被回收**，数据仍然保留。      |
+| **Failed（失败）**                | PV 自动回收**失败**，需手动介入（如存储回收异常）。 |
 
 **Released**状态的PV，如果需要重新使用 PV，需手动清理数据，并解除 PVC 绑定：
 
@@ -322,7 +322,37 @@ kubectl patch pv example-pv -p '{"spec":{"persistentVolumeReclaimPolicy":"Delete
 kubectl patch pv <pv-name> -p '{"spec":{"claimRef": null}}'
 ```
 
+注意：
 
+- **无法直接删除已绑定的 PV**
+
+  ```shell
+  # 删除处于绑定状态的PV（会出现卡顿现象，无法完成PV的删除）
+  root@ubuntu-master:/home/ubuntu/storage# kubectl delete -f pv.yaml
+  
+  # 查看PV和PVC状态
+  root@ubuntu-master:/home/ubuntu# kubectl get pvc,pv
+  NAME                        STATUS   VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+  persistentvolumeclaim/pvc   Bound    pvc      10Gi       RWO                           <unset>                 3m25s
+  
+  NAME                   CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS        CLAIM         STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
+  persistentvolume/pvc   10Gi       RWO            Retain           Terminating   default/pvc                  <unset>                          7m3s
+  
+  # 删除PVC后PV被删除
+  root@ubuntu-master:/home/ubuntu/storage# kubectl delete -f pvc.yaml
+  persistentvolumeclaim "pvc" deleted
+  root@ubuntu-master:/home/ubuntu/storage# kubectl get pvc,pv
+  No resources found
+  
+  ```
+
+  
+
+  - 如果 PV 处于 `Bound` 状态，直接执行 `kubectl delete pv <pv-name>`，Kubernetes 不会立即删除 PV，而是等待 PVC 解除绑定。
+
+  - 需要先删除或解除 PVC，才能删除PV
+
+    
 
 ### 📌 **PV 生命周期状态转换图**
 
@@ -508,6 +538,8 @@ kubectl patch pv <pv-name> -p '{"spec":{"claimRef": null}}'
    - `accessModes`：访问模式
    - `storageClassName`：存储类
    - `resources.requests.storage`：存储容量
+     - **PVC 请求 ≤ PV 提供** → ✅ 可以绑定
+     - **PVC 请求 > PV 提供** → ❌ 无法绑定
 
    
 
