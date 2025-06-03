@@ -327,7 +327,7 @@ kubectl patch pv <pv-name> -p '{"spec":{"claimRef": null}}'
 - **无法直接删除已绑定的 PV**
 
   ```shell
-  # 删除处于绑定状态的PV（会出现卡顿现象，无法完成PV的删除）
+  # 删除处于绑定状态的PV（会出现卡顿现象，无法完成PV的删除，此时PV状态为Terminating）
   root@ubuntu-master:/home/ubuntu/storage# kubectl delete -f pv.yaml
   
   # 查看PV和PVC状态
