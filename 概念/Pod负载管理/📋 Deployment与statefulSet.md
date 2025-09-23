@@ -375,7 +375,10 @@ deploy-nginx01   3/3     3            3           61s   app=deploy-nginx01
 
 ```
 
+ 注意：
 
+- **Deployment** 支持记录多个版本，方便回滚。
+- **StatefulSet / DaemonSet** 也有 ControllerRevision，但 **`kubectl rollout undo` 不支持**，需要手动回滚（修改镜像或 YAML）。
 
 ### 5 金丝雀发布
 
@@ -534,7 +537,7 @@ DESCRIPTION:
 
 ```
 
-- Parallel：并行管理，让 StatefulSet 控制器并行的启动或终止所有的 Pod， 启动或者终止其他 Pod 前，无需等待 Pod 进入 Running 和 Ready 或者完全停止状态。 这个选项只会影响扩缩操作的行为，更新则不会被影响。
+- Parallel：并行管理，让 StatefulSet 控制器并行的启动或终止所有的 Pod， 启动或者终止其他 Pod 前，无需等待 Pod 进入 Running 和 Ready 或者完全停止状态。 这个选项**只会影响扩缩操作的行为，更新则不会被影响**。
 - OrderedReady：有序管理，是 StatefulSet 的默认设置。
 
 yaml格式
@@ -719,6 +722,8 @@ updateStrategy:
 
 #### 滚动更新（RollingUpdate）
 
+
+
 ```shell
 [root@centos-master ~]# kubectl explain statefulSet.spec.updateStrategy.rollingUpdate
 GROUP:      apps
@@ -759,7 +764,7 @@ yaml书写格式
 updateStrategy:
       type: RollingUpdate
       rollingUpdate:
-        partition: 3   # 只更新pod序号等于大于partition-1指定的pod,小于partition-1序号的POD不更新；若partition大                          于replica则POD不牵涉更新，默认值是0。
+        partition: 3   # 只更新pod序号等于大于partition指定的pod,小于partition序号的POD不更新；若partition大                          于replica则POD不牵涉更新，默认值是0。
 
 updateStrategy:
       type: RollingUpdate
@@ -781,39 +786,93 @@ updateStrategy:
 
 #### 2. **Pod 更新顺序**
 
-- `StatefulSet` 的更新顺序是严格按照 Pod 的索引顺序进行的。
+`StatefulSet` 的更新顺序是严格按照 Pod 的索引顺序进行的。
 
-- 假设 
+当 StatefulSet 的 `.spec.updateStrategy.type` 被设置为 `RollingUpdate` 时， StatefulSet 控制器会删除和重建 StatefulSet 中的每个 Pod。 它将按照与 Pod 终止相同的顺序（从最大序号到最小序号）进行，每次更新一个 Pod。
 
-  ```
-  StatefulSet
-  ```
+假设 StatefulSet 名为 `web`，副本数为 3（`web-0`, `web-1`, `web-2`），更新镜像版本时：
 
-   包含 3 个 Pod，分别是 
+1. **选择更新对象**
 
-  ```
-  my-statefulset-0
-  ```
+   - 从序号 **最大** 的 Pod 开始更新（这里是 `web-2`）。
 
-  ```
-  my-statefulset-1
-  ```
+   - 删除 `web-2` → Controller 根据新版本模板重新创建 `web-2`。
 
-  ```
-  my-statefulset-2
-  ```
+   - 示例
 
-  更新顺序是：
+     ```shell
+     web-4         1/1     Terminating         0          99s
+     web-4         1/1     Terminating         0          99s
+     web-4         0/1     Terminating         0          100s
+     web-4         0/1     Terminating         0          101s
+     web-4         0/1     Terminating         0          101s
+     web-4         0/1     Terminating         0          101s
+     web-4         0/1     Pending             0          0s
+     web-4         0/1     Pending             0          0s
+     web-4         0/1     ContainerCreating   0          0s
+     web-4         0/1     ContainerCreating   0          2s
+     web-4         1/1     Running             0          5s
+     web-3         1/1     Terminating         0          87s
+     web-3         1/1     Terminating         0          88s
+     web-3         0/1     Terminating         0          88s
+     web-3         0/1     Terminating         0          89s
+     web-3         0/1     Terminating         0          89s
+     web-3         0/1     Pending             0          0s
+     web-3         0/1     Pending             0          0s
+     web-3         0/1     ContainerCreating   0          0s
+     web-3         0/1     ContainerCreating   0          1s
+     web-3         1/1     Running             0          4s
+     web-2         1/1     Terminating         0          84s
+     web-2         1/1     Terminating         0          84s
+     web-2         0/1     Terminating         0          85s
+     web-2         0/1     Terminating         0          86s
+     web-2         0/1     Terminating         0          86s
+     web-2         0/1     Terminating         0          87s
+     web-2         0/1     Pending             0          0s
+     web-2         0/1     Pending             0          0s
+     web-2         0/1     ContainerCreating   0          0s
+     web-2         0/1     ContainerCreating   0          2s
+     web-2         1/1     Running             0          4s
+     web-1         1/1     Terminating         0          85s
+     web-1         1/1     Terminating         0          85s
+     web-1         0/1     Terminating         0          86s
+     web-1         0/1     Terminating         0          86s
+     web-1         0/1     Terminating         0          86s
+     web-1         0/1     Pending             0          0s
+     web-1         0/1     Pending             0          0s
+     web-1         0/1     ContainerCreating   0          1s
+     web-1         0/1     ContainerCreating   0          2s
+     web-1         1/1     Running             0          5s
+     web-0         1/1     Terminating         0          86s
+     web-0         1/1     Terminating         0          86s
+     web-0         0/1     Terminating         0          87s
+     web-0         0/1     Terminating         0          88s
+     web-0         0/1     Terminating         0          88s
+     web-0         0/1     Terminating         0          88s
+     web-0         0/1     Pending             0          0s
+     web-0         0/1     Pending             0          1s
+     web-0         0/1     ContainerCreating   0          1s
+     web-0         0/1     ContainerCreating   0          2s
+     web-0         1/1     Running             0          4s
+     ```
 
-  1. 首先更新 `my-statefulset-0`
-  2. 然后更新 `my-statefulset-1`
-  3. 最后更新 `my-statefulset-2`
+     
 
-- 每个 Pod 更新时，Kubernetes 会执行以下步骤：
+2. **等待就绪**
 
-  1. **删除当前 Pod**：首先删除当前需要更新的 Pod（如 `my-statefulset-0`）。
-  2. **创建新 Pod**：然后创建一个新的 Pod，使用更新后的模板（例如新的镜像版本）。
-  3. **等待 Pod 就绪**：新 Pod 创建后，Kubernetes 会等待该 Pod 完全就绪（包括容器启动、健康检查等）之后，再继续更新下一个 Pod。
+   - 等待新 Pod 通过 **ReadinessProbe** 检查并进入 `Ready` 状态。
+
+3. **依次往下**
+
+   - `web-1` → 删除旧 Pod，拉起新 Pod，等待 Ready。
+   - 最后更新 `web-0`。
+
+4. **更新完成**
+
+   - 所有 Pod 都更新到新版本。
+   - 整个过程保证 Pod 的有序性，适合数据库、分布式存储、Zookeeper、Kafka 等需要稳定身份的服务。
+
+
 
 #### 3. **保证最小可用 Pod 数量**
 
@@ -834,6 +893,8 @@ updateStrategy:
 
 回滚是指将 `StatefulSet` 恢复到先前的版本。与 `Deployment` 的回滚不同，`StatefulSet` 的回滚必须小心处理，因为它涉及到有状态数据和 Pod 的顺序。
 
+**StatefulSet  **没有内置 `rollback`，不支持`kubectl rollout undo` ，只能手动改回旧版本（修改镜像或 YAML），或结合 `partition` 控制范围。
+
 ##### 1. **回滚触发**
 
 - 回滚通常是由于某些更新失败或新版本导致的问题。用户可以通过 `kubectl rollout undo` 命令或手动修改 `StatefulSet` 的配置来触发回滚。
@@ -846,7 +907,7 @@ updateStrategy:
 - 假设有 3 个 Pod
 
   ```
-  my-statefulset-0
+  my-statefulset-2
   ```
 
   ```
@@ -854,7 +915,7 @@ updateStrategy:
   ```
 
   ```
-  my-statefulset-2
+  my-statefulset-0
   ```
 
   回滚时的顺序是：
