@@ -51,6 +51,9 @@ spec: # 详情描述
     如果指定为OnFailure，则job会在pod出现故障时重启容器，而不是创建pod，failed次数不变
     如果指定为Never，则job会在pod出现故障时创建新的pod，并且故障pod不会消失，也不会重启，failed次数加1
     如果指定为Always的话，就意味着一直重启，意味着job任务会重复去执行了，当然不对，所以不能设置为Always
+    
+failure：英 /'feɪljə(r)/ ；美 /'feɪljər/
+n. 失败；故障；失败者；破产
 ```
 
 创建pc-job.yaml，内容如下：
